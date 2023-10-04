@@ -15,7 +15,7 @@ from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.addons.account import SYSCOHADA_LIST
 from odoo.exceptions import AccessError
 from odoo.tools import file_open, groupby
-from odoo.tools.translate import TranslationImporter
+from odoo.tools.translate import code_translations, TranslationImporter
 
 _logger = logging.getLogger(__name__)
 
@@ -168,6 +168,8 @@ class AccountChartTemplate(models.AbstractModel):
         )
         company = company.with_env(self.env)
 
+        preexisting_accounts = self.env['account.account'].search([('company_id', '=', company.id)])
+
         reload_template = template_code == company.chart_template
         company.chart_template = template_code
 
@@ -185,6 +187,18 @@ class AccountChartTemplate(models.AbstractModel):
         self._load_data(data)
         self._load_translations(companies=company)
         self._post_load_data(template_code, company, template_data)
+
+        # Add translations for names of new accounts without xmlid.
+        # This is (usually) i.e. necessary for the following accounts
+        #     * (some) bank utility accounts (see function _setup_utility_bank_accounts)
+        #     * cash / bank journal accounts (created "by" account.journal)
+        #     * unaffected earnings accounts (created "by" res.company)
+        ids_of_accounts_with_xmlid = self.env['ir.model.data'].search([('model', '=', 'account.account')]).mapped('res_id')
+        new_accounts_without_xmlid = self.env['account.account'].search([
+            ('company_id', '=', company.id),
+            ('id', 'not in', preexisting_accounts.ids + ids_of_accounts_with_xmlid),
+        ])
+        self._load_account_name_code_translations(new_accounts_without_xmlid)
 
         # Manual sync because disable above (delay_account_group_sync)
         AccountGroup = self.env['account.group'].with_context(delay_account_group_sync=False)
@@ -1002,3 +1016,26 @@ class AccountChartTemplate(models.AbstractModel):
                                     xml_id = f"account.{company.id}_{_xml_id}"
                                     translation_importer.model_translations[mname][fname][xml_id][lang] = value
         translation_importer.save(overwrite=False)
+
+    def _load_account_name_code_translations(self, accounts):
+        """Loads translations for the accounts passed as argument from the code translations of the 'account' module.
+
+        :param accounts: the accounts to load the translations for
+        :type accounts: Model<account.account>
+        """
+
+        langs = [code for code, _name in self.env['res.lang'].get_installed()]
+        translations = {
+            lang_code: code_translations.get_python_translations('account', lang_code)
+            for lang_code in langs
+        }
+
+        for account in accounts:
+            name_translations = {
+                lang_code: translations[lang_code][account.name]
+                for lang_code in langs
+                # There are no translations for language 'en_US' (since it is the original language and not a translation)
+                if lang_code != 'en_US' and account.name in translations[lang_code]
+            }
+            if name_translations:
+                account.update_field_translations('name', name_translations)
