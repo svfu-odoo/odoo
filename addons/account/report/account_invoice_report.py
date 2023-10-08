@@ -18,6 +18,7 @@ class AccountInvoiceReport(models.Model):
     journal_id = fields.Many2one('account.journal', string='Journal', readonly=True)
     company_id = fields.Many2one('res.company', string='Company', readonly=True)
     company_currency_id = fields.Many2one('res.currency', string='Company Currency', readonly=True)
+    currency_id = fields.Many2one('res.currency', string='Currency', readonly=True)
     partner_id = fields.Many2one('res.partner', string='Partner', readonly=True)
     commercial_partner_id = fields.Many2one('res.partner', string='Main Partner')
     country_id = fields.Many2one('res.country', string="Country")
@@ -45,7 +46,11 @@ class AccountInvoiceReport(models.Model):
     invoice_date_due = fields.Date(string='Due Date', readonly=True)
     account_id = fields.Many2one('account.account', string='Revenue/Expense Account', readonly=True, domain=[('deprecated', '=', False)])
     price_subtotal = fields.Float(string='Untaxed Total', readonly=True)
+    balance2 = fields.Float(string='Untaxed Total 2', readonly=True)
     price_total = fields.Float(string='Total', readonly=True)
+    price_total_company = fields.Float(string='Total Company Currency', readonly=True)
+    price_total_company2 = fields.Float(string='Total Company Currency 2', readonly=True)
+    price_total_hacky = fields.Float(string='Total Company Currency (hacky)', readonly=True)
     price_average = fields.Float(string='Average Price', readonly=True, group_operator="avg")
 
     _depends = {
@@ -67,7 +72,13 @@ class AccountInvoiceReport(models.Model):
 
     @property
     def _table_query(self):
-        return '%s %s %s' % (self._select(), self._from(), self._where())
+        return '%s %s %s %s' % (self._with(), self._select(), self._from(), self._where())
+
+    @api.model
+    def _with(self):
+        return f'''
+            WITH company_currencies AS ({self.env['res.currency']._select_companies_rates()})
+        '''
 
     @api.model
     def _select(self):
@@ -80,6 +91,7 @@ class AccountInvoiceReport(models.Model):
                 line.journal_id,
                 line.company_id,
                 line.company_currency_id,
+                line.currency_id,
                 line.partner_id AS commercial_partner_id,
                 account.account_type AS user_type,
                 move.state,
@@ -97,6 +109,33 @@ class AccountInvoiceReport(models.Model):
                 -line.balance * currency_table.rate                         AS price_subtotal,
                 line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
                                                                             AS price_total,
+                -- choose rate 1.0 in case we are at time before first entered rate for company / currency combo
+                COALESCE(line_currency_conversion.rate,1.0)
+                                                                            AS line_rate,
+                COALESCE(company_currency_conversion.rate,1.0)
+                                                                            AS company_rate,
+                ROUND(line.price_subtotal
+                          * COALESCE(company_currency_conversion.rate, 1.0)
+                          / COALESCE(line_currency_conversion.rate, 1.0)
+                      , company_currency.decimal_places)
+                    * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                    * currency_table.rate
+                                                                            AS balance2,
+                ROUND(line.price_total
+                          * COALESCE(company_currency_conversion.rate, 1.0)
+                          / COALESCE(line_currency_conversion.rate, 1.0)
+                      , company_currency.decimal_places)
+                    * currency_table.rate
+                                                                            AS price_total_company,
+                CASE line.price_subtotal
+                    WHEN 0
+                        THEN 0
+                        ELSE ROUND(line.price_total * ABS(line.balance / line.price_subtotal), company_currency.decimal_places)
+                    END
+                    * currency_table.rate
+                                                                            AS price_total_hacky,
+                amls_company_currency.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END) * currency_table.rate
+                                                                            AS price_total_company2,
                 -COALESCE(
                    -- Average line price
                    (line.balance / NULLIF(line.quantity, 0.0)) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
@@ -108,6 +147,15 @@ class AccountInvoiceReport(models.Model):
 
     @api.model
     def _from(self):
+        amls = self.env['account.move.line'].search([])
+        query_template = '(VALUES %s) AS amls_company_currency(line_id, price_total)' % ','.join('(%s, %s)' for _line in amls)
+        amls_company_currency_values = []
+        for line in amls:
+            amls_company_currency_values.extend((
+                line.id,
+                line.company_currency_id.round(line.price_total / line.currency_rate),
+            ))
+        amls_company_currency = self.env.cr.mogrify(query_template, amls_company_currency_values).decode(self.env.cr.connection.encoding)
         return '''
             FROM account_move_line line
                 LEFT JOIN res_partner partner ON partner.id = line.partner_id
@@ -119,8 +167,21 @@ class AccountInvoiceReport(models.Model):
                 INNER JOIN account_move move ON move.id = line.move_id
                 LEFT JOIN res_partner commercial_partner ON commercial_partner.id = move.commercial_partner_id
                 JOIN {currency_table} ON currency_table.company_id = line.company_id
+                LEFT JOIN company_currencies line_currency_conversion ON
+                      line.currency_id = line_currency_conversion.currency_id
+                  AND line.company_id = line_currency_conversion.company_id
+                  AND COALESCE(line.date, NOW()) >= line_currency_conversion.date_start
+                  AND (line_currency_conversion.date_end IS NULL OR line_currency_conversion.date_end > COALESCE(line.date, NOW()))
+                LEFT JOIN company_currencies company_currency_conversion ON
+                      line.company_currency_id = company_currency_conversion.currency_id
+                  AND line.company_id = company_currency_conversion.company_id
+                  AND COALESCE(line.date, NOW()) >= company_currency_conversion.date_start
+                  AND (company_currency_conversion.date_end IS NULL OR company_currency_conversion.date_end > COALESCE(line.date, NOW()))
+                LEFT JOIN res_currency company_currency ON company_currency.id = line.company_currency_id
+                LEFT JOIN {amls_company_currency} ON amls_company_currency.line_id = line.id
         '''.format(
             currency_table=self.env['res.currency']._get_query_currency_table({'multi_company': True, 'date': {'date_to': fields.Date.today()}}),
+            amls_company_currency=amls_company_currency,
         )
 
     @api.model
