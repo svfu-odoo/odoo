@@ -95,7 +95,7 @@ class AccountInvoiceReport(models.Model):
                 line.quantity / NULLIF(COALESCE(uom_line.factor, 1) / COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
                                                                             AS quantity,
                 -line.balance * currency_table.rate                         AS price_subtotal,
-                line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                amls_company_currency.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END) * currency_table.rate
                                                                             AS price_total,
                 -COALESCE(
                    -- Average line price
@@ -108,6 +108,22 @@ class AccountInvoiceReport(models.Model):
 
     @api.model
     def _from(self):
+        # Create a table to pass the information about the price_total of each account.move.line in company currency to the SQL query
+        # In case there are no account move lines we pass a table with 1 row only containing NULL values
+        amls = self.env['account.move.line'].search([])
+        if amls:
+            query_template = '(VALUES %s) AS amls_company_currency(line_id, price_total)' % ','.join('(%s, %s)' for _line in amls)
+            amls_company_currency_values = []
+            for line in amls:
+                amls_company_currency_values.extend((
+                    line.id,
+                    line.company_currency_id.round(line.price_total / line.currency_rate),
+                ))
+        else:
+            query_template = '(VALUES (CAST(%s AS INTEGER), CAST(%s AS NUMERIC))) AS amls_company_currency(line_id, price_total)'
+            amls_company_currency_values = [None, None]
+        amls_company_currency = self.env.cr.mogrify(query_template, amls_company_currency_values).decode(self.env.cr.connection.encoding)
+
         return '''
             FROM account_move_line line
                 LEFT JOIN res_partner partner ON partner.id = line.partner_id
@@ -119,8 +135,10 @@ class AccountInvoiceReport(models.Model):
                 INNER JOIN account_move move ON move.id = line.move_id
                 LEFT JOIN res_partner commercial_partner ON commercial_partner.id = move.commercial_partner_id
                 JOIN {currency_table} ON currency_table.company_id = line.company_id
+                LEFT JOIN {amls_company_currency} ON amls_company_currency.line_id = line.id
         '''.format(
             currency_table=self.env['res.currency']._get_query_currency_table({'multi_company': True, 'date': {'date_to': fields.Date.today()}}),
+            amls_company_currency=amls_company_currency,
         )
 
     @api.model
