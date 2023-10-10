@@ -2900,6 +2900,60 @@ class AccountMove(models.Model):
             to_update_vals, tax_values_list = self.env['account.tax']._compute_taxes_for_single_line(base_line)
             to_process.append((base_line, to_update_vals, tax_values_list))
 
+        # Handle manually changed tax amounts (via quick-edit or journal entry manipulation):
+        # For each tax line (manually set) we compute the difference to the computed tax amounts.
+        # This difference is then distributed evenly across the 'tax_values_list' in 'to_process'.
+        # The updated tax information is later used by '_aggregate_taxes' to compute the right tax amounts (consistently on all levels).
+        tax_lines = self.line_ids.filtered(lambda x: x.display_type == 'tax')
+        if tax_lines is not None:
+            round_per_line = self.company_id.tax_calculation_rounding_method == 'round_per_line'
+
+            # "Group" the items in "tax_values_list" ("from" 'to_process') by their tax id (and "attach" some needed info).
+            # This avoids looping over 'to_process' when looping over the tax line information.
+            tax_values_info_map = {}
+            for base_line, _to_update_vals, tax_values_list in to_process:
+                for tax_value in tax_values_list:
+                    tax_values_info_map.setdefault(tax_value['id'], []).append({
+                        'tax_value': tax_value,
+                        'rate': base_line['rate'],  # to convert 'tax_amount_currency' to 'tax_amount'
+                    })
+
+            tax_line_dicts = [x._convert_to_tax_line_dict() for x in tax_lines]
+            for tax_line_dict in tax_line_dicts:
+                tax_id = tax_line_dict['tax_repartition_line'].tax_id.id
+                matched_tax_values_info = tax_values_info_map[tax_id]
+                if not matched_tax_values_info:
+                    continue
+
+                # Determine the computed tax amount
+                tax_repartition_line_amounts = [
+                    tax_values_info['tax_value']['tax_amount_currency'] * tax_values_info['tax_value']['tax_repartition_line'].factor
+                    for tax_values_info in matched_tax_values_info
+                ]
+                if round_per_line:
+                    tax_repartition_line_amounts = [self.currency_id.round(x) for x in tax_repartition_line_amounts]
+                computed_tax_amount = sum(tax_repartition_line_amounts)
+
+                manual_tax_amount = tax_line_dict['tax_amount']
+                tax_difference = abs(manual_tax_amount - computed_tax_amount)
+                if self.currency_id.is_zero(tax_difference):
+                    continue
+                tax_difference_sign = -1 if manual_tax_amount < computed_tax_amount else 1
+
+                # Distribute the tax difference evenly across the matched tax values
+                tax_difference_in_whole_rounding_units = int(tax_difference / self.currency_id.rounding)
+                common_surplus_per_line = int(tax_difference_in_whole_rounding_units / len(matched_tax_values_info)) * self.currency_id.rounding * tax_difference_sign
+                remaining_surplus = tax_difference * tax_difference_sign - common_surplus_per_line * len(matched_tax_values_info)
+                to_change = [(info, common_surplus_per_line) for info in matched_tax_values_info] + \
+                            [(matched_tax_values_info[-1], remaining_surplus)]
+                for tax_value_info, surplus in to_change:
+                    tax_value = tax_value_info['tax_value']
+                    tax_value['tax_amount_currency'] += surplus
+                    tax_amount = tax_value['tax_amount_currency'] / tax_value_info['rate']
+                    if round_per_line:
+                        tax_amount = self.company_currency_id.round(tax_amount)
+                    tax_value['tax_amount'] = tax_amount
+
         return self.env['account.tax']._aggregate_taxes(
             to_process,
             filter_tax_values_to_apply=filter_tax_values_to_apply,
