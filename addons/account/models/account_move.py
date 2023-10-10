@@ -2901,6 +2901,78 @@ class AccountMove(models.Model):
             to_update_vals, tax_values_list = self.env['account.tax']._compute_taxes_for_single_line(base_line)
             to_process.append((base_line, to_update_vals, tax_values_list))
 
+        # Handle manually changed tax amounts (via quick-edit or journal entry manipulation):
+        # For each tax repartition line we compute the difference between the following 2 amounts
+        #     * Manual tax amount:
+        #       The sum of the amounts on the tax lines belonging to the tax repartition line.
+        #       These amounts may have been manually changed.
+        #     * Computed tax amount:
+        #       The sum of the amounts on the items in 'tax_values_list' in 'to_process' belonging to the tax repartition line.
+        # This difference is then distributed evenly across the 'tax_values_list' in 'to_process'
+        # such that the manual and computed tax amounts match.
+        # The updated tax information is later used by '_aggregate_taxes' to compute the right tax amounts (consistently on all levels).
+        tax_lines = self.line_ids.filtered(lambda x: x.display_type == 'tax')
+        if tax_lines is not None:
+            round_per_line = self.company_id.tax_calculation_rounding_method == 'round_per_line'
+
+            # "Group" the items in "tax_values_list" ("from" 'to_process') and "attach" some needed info.
+            # This avoids looping over 'to_process' when looping over the tax line information.
+            tax_values_info_map = {}
+            for base_line, _to_update_vals, tax_values_list in to_process:
+                for tax_value in tax_values_list:
+                    tax_values_info_map.setdefault(tax_value['tax_repartition_line_id'], []).append({
+                        'tax_value': tax_value,
+                        'rate': base_line['rate'],  # to convert 'tax_amount_currency' to 'tax_amount'
+                    })
+
+            # There can be multiple tax lines with the same tax_repartition_line_id.
+            tax_line_map = {}
+            for tax_line in tax_lines:
+                tax_line_map.setdefault(tax_line.tax_repartition_line_id, []).append(tax_line)
+
+            for tax_repartition_line, tax_lines in tax_line_map.items():
+                matched_tax_values_info = tax_values_info_map.get(tax_repartition_line.id)
+                if not matched_tax_values_info:
+                    continue
+
+                computed_tax_amount = sum([
+                    tax_values_info['tax_value']['tax_amount_currency'] * tax_repartition_line.factor
+                    for tax_values_info in matched_tax_values_info
+                ])
+                manual_tax_amount = sum((-1 if self.is_inbound(include_receipts=True) else 1) * tax_line.amount_currency
+                                        for tax_line in tax_lines)
+                tax_difference = manual_tax_amount - computed_tax_amount
+
+                if self.currency_id.is_zero(tax_difference):
+                    continue
+
+                # Distribute the tax difference evenly across the matched tax values
+                tax_difference_per_line = tax_difference / len(matched_tax_values_info)
+                tax_difference_error = 0  # Relevant in case we round_per_line; see below
+                if round_per_line:
+                    tax_difference_per_line = self.currency_id.round(tax_difference_per_line)
+                    # We rounded the tax_difference_per_line.
+                    # Thus adding tax_difference_per_line to each line does not guarantee to equalize the tax_difference.
+                    # The (absolute) error can be greater than 1 rounding unit but not greater than "# lines" * "rounding unit".
+                    # We later distribute this error too (in an additional rounding unit per lines as far as needed and possible)
+                    tax_difference_error = tax_difference - tax_difference_per_line * len(matched_tax_values_info)
+                    tax_difference_error_sign = -1 if tax_difference_error < 0 else 1
+                for tax_value_info in matched_tax_values_info:
+                    # Compute the value to add to tax_amount_currency for this line
+                    difference = tax_difference_per_line
+                    if tax_difference_error:
+                        difference_from_error = (tax_difference_error if tax_difference_error_sign * tax_difference_error < self.currency_id.rounding
+                                                 else tax_difference_error_sign * self.currency_id.rounding)
+                        tax_difference_error -= difference_from_error
+                        difference += difference_from_error
+
+                    tax_value = tax_value_info['tax_value']
+                    tax_value['tax_amount_currency'] += difference
+                    tax_amount = tax_value['tax_amount_currency'] / tax_value_info['rate']
+                    if round_per_line:
+                        tax_amount = self.company_currency_id.round(tax_amount)
+                    tax_value['tax_amount'] = tax_amount
+
         return self.env['account.tax']._aggregate_taxes(
             to_process,
             filter_tax_values_to_apply=filter_tax_values_to_apply,
