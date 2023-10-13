@@ -15,7 +15,7 @@ from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.addons.account import SYSCOHADA_LIST
 from odoo.exceptions import AccessError
 from odoo.tools import file_open, groupby
-from odoo.tools.translate import TranslationImporter
+from odoo.tools.translate import code_translations, TranslationImporter
 
 _logger = logging.getLogger(__name__)
 
@@ -183,8 +183,8 @@ class AccountChartTemplate(models.AbstractModel):
             install_demo = False
         data = self._pre_load_data(template_code, company, template_data, data)
         self._load_data(data)
-        self._load_translations(companies=company)
         self._post_load_data(template_code, company, template_data)
+        self._load_translations(companies=company)
 
         # Manual sync because disable above (delay_account_group_sync)
         AccountGroup = self.env['account.group'].with_context(delay_account_group_sync=False)
@@ -195,7 +195,7 @@ class AccountChartTemplate(models.AbstractModel):
         if install_demo and self.ref('base.module_account').demo and not reload_template:
             try:
                 with self.env.cr.savepoint():
-                    self._load_data(self._get_demo_data(company))
+                    self._load_data(self.with_context(lang='en_US')._get_demo_data(company))
                     self._post_load_demo_data(company)
             except Exception:
                 # Do not rollback installation of CoA if demo data failed
@@ -502,10 +502,10 @@ class AccountChartTemplate(models.AbstractModel):
         company = (company or self.env.company)
         additional_properties = template_data.pop('additional_properties', {})
 
-        self._setup_utility_bank_accounts(template_code, company, template_data)
+        self.with_context(lang='en_US')._setup_utility_bank_accounts(template_code, company, template_data)
 
         # Unaffected earnings account on the company (if not present yet)
-        company.get_unaffected_earnings_account()
+        company.with_context(lang='en_US').get_unaffected_earnings_account()
 
         # Set newly created Cash difference and Suspense accounts to the Cash and Bank journals
         for journal in [self.ref(kind, raise_if_not_found=False) for kind in ('bank', 'cash')]:
@@ -560,7 +560,8 @@ class AccountChartTemplate(models.AbstractModel):
                 key=lambda i: TEMPLATE_MODELS.index(i[0]) if i[0] in TEMPLATE_MODELS else 1000
             ):
                 for func in funcs:
-                    data = func(self, template_code)
+                    data = func(self.with_context(lang='en_US') if model in TEMPLATE_MODELS and self.env[model]._fields['name'].translate else self,
+                                template_code)
                     if data is not None:
                         if model == 'template_data':
                             template_data[model].update(data)
@@ -638,7 +639,14 @@ class AccountChartTemplate(models.AbstractModel):
             if company[fname]:
                 del accounts_data[fname]
 
-        accounts = self.env['account.account'].create(accounts_data.values())
+        accounts = self.env['account.account']._load_records([
+            {
+                'xml_id': f"account.{str(self.env.company.id)}_{xml_id}",
+                'values': values,
+                'noupdate': True,
+            }
+            for xml_id, values in accounts_data.items()
+        ])
         for company_attr_name, account in zip(accounts_data.keys(), accounts):
             company[company_attr_name] = account
 
@@ -972,6 +980,46 @@ class AccountChartTemplate(models.AbstractModel):
                 _logger.debug("No file %s found for template '%s'", model, module)
         return res
 
+    def _get_untranslated_translatable_template_model_records(self, langs, companies):
+        if not langs or not companies:
+            return []
+
+        queried_models = [model for model in TEMPLATE_MODELS if self.env[model]._fields['name'].translate]
+
+        for model in queried_models:
+            self.env[model].flush_model(['id', 'company_id', 'name'])
+        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
+
+        WHERE_clause_missing_translation = " OR ".join([
+            f"model.name->>'{lang}' IS NULL"
+            for lang in langs
+        ])
+
+        queries = [
+            f'''
+             SELECT '{model}' AS model,
+                    model_data.name AS xmlid,
+                    '{field_name}' AS field_name,
+                    model.name AS name,
+                    model_data.module AS module
+             FROM {model_table} model
+             JOIN ir_model_data model_data
+                 ON  model_data.model = '{model}'
+                 AND model.id = model_data.res_id
+             WHERE {WHERE_clause_missing_translation}
+                 AND model.name->>'en_US' IS NOT NULL
+                 AND model.company_id IN ({','.join([str(id) for id in companies.ids])})
+            '''
+            for model_table, model, field_name
+            in [
+                (self.env[model]._table, model, 'name')
+                for model in queried_models
+            ]
+        ]
+
+        self._cr.execute(' UNION ALL '.join(queries))
+        return self._cr.fetchall()
+
     def _load_translations(self, langs=None, companies=None):
         """Load the translations of the chart template.
 
@@ -986,6 +1034,18 @@ class AccountChartTemplate(models.AbstractModel):
         companies = companies or self.env['res.company'].search([('chart_template', 'in', available_template_codes)])
 
         translation_importer = TranslationImporter(self.env.cr, verbose=False)
+
+        # there are no code translations for 'en_US' since it is the original language
+        translation_langs = [lang for lang in langs if lang != 'en_US']
+
+        for (mname, _xml_id, fname, name, module) in self._get_untranslated_translatable_template_model_records(translation_langs, companies):
+            name_en_US = name['en_US']
+            xml_id = f"{module}.{_xml_id}"
+            for lang in [lang for lang in translation_langs if lang in name]:
+                name_translated = code_translations.get_python_translations(module, lang).get(name_en_US)
+                if name_translated:
+                    translation_importer.model_translations[mname][fname][xml_id][lang] = name_lang
+
         for chart_template, chart_companies in groupby(companies, lambda c: c.chart_template):
             template_data = self.env['account.chart.template']._get_chart_template_data(chart_template)
             template_data.pop('template_data', None)
