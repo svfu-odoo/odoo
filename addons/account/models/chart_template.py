@@ -4,7 +4,7 @@ import ast
 from collections import defaultdict
 import csv
 from functools import wraps
-from inspect import getmembers
+from inspect import getmembers, getfile
 import logging
 import re
 
@@ -14,8 +14,9 @@ from odoo import Command, _, models, api
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.addons.account import SYSCOHADA_LIST
 from odoo.exceptions import AccessError
+from odoo.modules import get_resource_from_path
 from odoo.tools import file_open, groupby
-from odoo.tools.translate import TranslationImporter
+from odoo.tools.translate import code_translations, TranslationImporter
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +48,13 @@ def template(template=None, model='template_data'):
                 # remove the template code argument as we already know it from the decorator
                 args, kwargs = args[:1], {}
             return func(*args, **kwargs)
+
+        # store the module the function originates from (for code translation)
+        path = func.__globals__['__file__']
+        path_info = get_resource_from_path(path)
+        module = path_info[0] if path_info else 'account'
+        api.attrsetter('_module', module)(wrapper)
+
         return api.attrsetter('_l10n_template', (template, model))(wrapper)
     return decorator
 
@@ -183,7 +191,6 @@ class AccountChartTemplate(models.AbstractModel):
             install_demo = False
         data = self._pre_load_data(template_code, company, template_data, data)
         self._load_data(data)
-        self._load_translations(companies=company)
         self._post_load_data(template_code, company, template_data)
 
         # Manual sync because disable above (delay_account_group_sync)
@@ -195,11 +202,13 @@ class AccountChartTemplate(models.AbstractModel):
         if install_demo and self.ref('base.module_account').demo and not reload_template:
             try:
                 with self.env.cr.savepoint():
-                    self._load_data(self._get_demo_data(company))
+                    self._load_data(self.with_context(lang='en_US')._get_demo_data(company))
                     self._post_load_demo_data(company)
             except Exception:
                 # Do not rollback installation of CoA if demo data failed
                 _logger.exception('Error while loading accounting demo data')
+
+        self._load_translations(companies=company)
 
     def _pre_reload_data(self, company, template_data, data):
         """Pre-process the data in case of reloading the chart of accounts.
@@ -480,7 +489,7 @@ class AccountChartTemplate(models.AbstractModel):
             for xml_id, record in data.items():
                 # Extract the translations from the values
                 for key in list(record):
-                    if '@' in key:
+                    if '@' in key or key == '_name_code_translation_module':
                         del record[key]
 
                 # Manage ids given as database id or xml_id
@@ -502,10 +511,10 @@ class AccountChartTemplate(models.AbstractModel):
         company = (company or self.env.company)
         additional_properties = template_data.pop('additional_properties', {})
 
-        self._setup_utility_bank_accounts(template_code, company, template_data)
+        self.with_context(lang='en_US')._setup_utility_bank_accounts(template_code, company, template_data)
 
         # Unaffected earnings account on the company (if not present yet)
-        company.get_unaffected_earnings_account()
+        company.with_context(lang='en_US').get_unaffected_earnings_account()
 
         # Set newly created Cash difference and Suspense accounts to the Cash and Bank journals
         for journal in [self.ref(kind, raise_if_not_found=False) for kind in ('bank', 'cash')]:
@@ -560,12 +569,16 @@ class AccountChartTemplate(models.AbstractModel):
                 key=lambda i: TEMPLATE_MODELS.index(i[0]) if i[0] in TEMPLATE_MODELS else 1000
             ):
                 for func in funcs:
-                    data = func(self, template_code)
+                    data = func(self.with_context(lang='en_US') if model in TEMPLATE_MODELS and self.env[model]._fields['name'].translate else self,
+                                template_code)
                     if data is not None:
                         if model == 'template_data':
                             template_data[model].update(data)
                         else:
                             for xmlid, record in data.items():
+                                if 'name' in record:
+                                    # Store information about which module the name originates from for code translations
+                                    record['_name_code_translation_module'] = func._module
                                 template_data[model][xmlid].update(record)
         return template_data
 
@@ -638,7 +651,14 @@ class AccountChartTemplate(models.AbstractModel):
             if company[fname]:
                 del accounts_data[fname]
 
-        accounts = self.env['account.account'].create(accounts_data.values())
+        accounts = self.env['account.account']._load_records([
+            {
+                'xml_id': f"account.{str(self.env.company.id)}_{xml_id}",
+                'values': values,
+                'noupdate': True,
+            }
+            for xml_id, values in accounts_data.items()
+        ])
         for company_attr_name, account in zip(accounts_data.keys(), accounts):
             company[company_attr_name] = account
 
@@ -972,6 +992,41 @@ class AccountChartTemplate(models.AbstractModel):
                 _logger.debug("No file %s found for template '%s'", model, module)
         return res
 
+    def _get_template_model_records_with_untranslated_translatable_name(self, langs, companies):
+        if not langs or not companies:
+            return []
+
+        queried_models = [model for model in TEMPLATE_MODELS if self.env[model]._fields['name'].translate]
+
+        for model in queried_models:
+            self.env[model].flush_model(['id', 'company_id', 'name'])
+        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
+
+        WHERE_clause_missing_translation = " OR ".join([
+            f"model.name->>'{lang}' IS NULL"
+            for lang in langs
+        ])
+
+        queries = [
+            f'''
+             SELECT '{model}' AS model,
+                    model_data.name AS xmlid,
+                    model.name AS name,
+                    model_data.module AS module
+             FROM {model_table} model
+             JOIN ir_model_data model_data
+                 ON  model_data.model = '{model}'
+                 AND model.id = model_data.res_id
+             WHERE {WHERE_clause_missing_translation}
+                 AND model.name->>'en_US' IS NOT NULL
+                 AND model.company_id IN ({','.join([str(id) for id in companies.ids])})
+            '''
+            for model_table, model in [(self.env[model]._table, model) for model in queried_models]
+        ]
+
+        self._cr.execute(' UNION ALL '.join(queries))
+        return self._cr.fetchall()
+
     def _load_translations(self, langs=None, companies=None):
         """Load the translations of the chart template.
 
@@ -986,19 +1041,64 @@ class AccountChartTemplate(models.AbstractModel):
         companies = companies or self.env['res.company'].search([('chart_template', 'in', available_template_codes)])
 
         translation_importer = TranslationImporter(self.env.cr, verbose=False)
+
+        # translate records that are created from the chart_template data
+
         for chart_template, chart_companies in groupby(companies, lambda c: c.chart_template):
             template_data = self.env['account.chart.template']._get_chart_template_data(chart_template)
             template_data.pop('template_data', None)
             for mname, data in template_data.items():
                 for _xml_id, record in data.items():
+                    _name_code_translation_module = record.pop('_name_code_translation_module', 'account')
                     fnames = {fname.split('@')[0] for fname in record}
                     for lang in langs:
                         for fname in fnames:
+                            if not self.env[mname]._fields[fname].translate:
+                                continue
                             value = record.get(f"{fname}@{lang}")
                             if not value:  # manage generic locale (i.e. `fr` instead of `fr_BE`)
                                 value = record.get(f"{fname}@{lang.split('_')[0]}")
+                            if not value and fname == 'name':
+                                value = code_translations.get_python_translations(_name_code_translation_module, lang).get(record[fname])
+                                if not value:  # manage generic locale (i.e. `fr` instead of `fr_BE`)
+                                    value = code_translations.get_python_translations(_name_code_translation_module, lang.split('_')[0]).get(record[fname])
                             if value:
                                 for company in chart_companies:
                                     xml_id = f"account.{company.id}_{_xml_id}"
                                     translation_importer.model_translations[mname][fname][xml_id][lang] = value
+
+        # translate the name of TEMPLATE_MODELS records that are not created from the chart_template data
+
+        # We use all modules that modify the model of self ('account.chart.template') as translation source.
+        # The MRO (w/o duplicates) of the class / model is used to order the modules.
+        # ('dict' preservers the order of insertion of the keys in Python 3.7 +)
+        files_modifying_this_model = list(dict.fromkeys([
+            getfile(cls) for cls in self.__class__.__mro__
+            if getattr(cls, '_name', None) == self.__class__._name
+        ]))
+        modules_to_use_for_code_translations = dict.fromkeys([
+            (get_resource_from_path(path) or (None, ))[0]  # module to which 'path' belongs to or 'None'
+            for path in files_modifying_this_model
+        ])
+        modules_to_use_for_code_translations.pop(None, None)
+        modules_to_use_for_code_translations = list(modules_to_use_for_code_translations)
+
+        # there are no code translations for 'en_US' since it is the original language
+        translation_langs = [lang for lang in langs if lang != 'en_US']
+
+        for (mname, _xml_id, name, module) in self._get_template_model_records_with_untranslated_translatable_name(translation_langs, companies):
+            name_en_US = name['en_US']
+            xml_id = f"{module}.{_xml_id}"
+            for lang in [lang for lang in translation_langs if lang not in name]:
+                if lang in translation_importer.model_translations[mname]['name'][xml_id]:
+                    continue
+                name_translated = None
+                for code_module in [module] + modules_to_use_for_code_translations:
+                    name_translated = code_translations.get_python_translations(code_module, lang).get(name_en_US)
+                    if not name_translated:  # manage generic locale (i.e. `fr` instead of `fr_BE`)
+                        name_translated = code_translations.get_python_translations(code_module, lang.split('_')[0]).get(name_en_US)
+                    if name_translated:
+                        translation_importer.model_translations[mname]['name'][xml_id][lang] = name_translated
+                        break
+
         translation_importer.save(overwrite=False)
