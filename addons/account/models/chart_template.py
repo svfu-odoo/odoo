@@ -488,6 +488,7 @@ class AccountChartTemplate(models.AbstractModel):
                     record['id'] = xml_id
                     xml_id = False
                 else:
+                    # TODO: ?: put correct module
                     xml_id = f"{('account.' + str(self.env.company.id) + '_') if '.' not in xml_id else ''}{xml_id}"
 
                 create_vals.append({
