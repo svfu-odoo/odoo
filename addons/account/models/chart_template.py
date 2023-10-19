@@ -8,6 +8,7 @@ from inspect import getmembers
 import logging
 import re
 
+from psycopg2 import sql
 from psycopg2.extras import Json
 
 from odoo import Command, _, models, api
@@ -1001,40 +1002,70 @@ class AccountChartTemplate(models.AbstractModel):
                 _logger.debug("No file %s found for template '%s'", model, module)
         return res
 
-    def _get_template_model_records_with_untranslated_translatable_name(self, langs, companies):
+    def _get_untranslated_translatable_template_model_records(self, langs, companies):
         if not langs or not companies:
             return []
 
-        queried_models = [model for model in TEMPLATE_MODELS if self.env[model]._fields['name'].translate]
+        def _sql_identifier(identifier):
+            return sql.SQL("{}").format(sql.Identifier(identifier)).as_string(self._cr._obj)
 
-        for model in queried_models:
-            self.env[model].flush_model(['id', 'company_id', 'name'])
-        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
+        translatable_model_fields = {
+            model: [fieldname for (fieldname, field) in self.env[model]._fields.items() if field.translate]
+            for model in TEMPLATE_MODELS
+        }
+
+        queried_models = [model for model in TEMPLATE_MODELS if translatable_model_fields[model]]
 
         params = {'company_ids': tuple(companies.ids)}
-
-        missing_translation_clauses = []
-        for i, lang in enumerate(langs):
-            _lang = f'lang{i}'
-            params[_lang] = lang
-            missing_translation_clauses.append(f"(model.name ->> %({_lang})s) IS NULL")
-
         queries = []
         for i, model in enumerate(queried_models):
-            _model = f'model{i}'
+            _model = f'model{i}'  # named argument for query
             params[_model] = model
+
+            translatable_fields = translatable_model_fields[model]
+
+            # We only want records that have at least 1 translatable field with the following properties
+            #   * The field value is missing for at least 1 of the langages in 'langs'
+            #   * The field value exists in English (to load the translations)
+            # Here we construct a list of these clauses (1 clause per translatable field)
+            field_missing_translation_clauses = []
+            for field in translatable_fields:
+                missing_translation_clauses = []
+                for j, lang in enumerate(langs):
+                    _lang = f'lang{j}'
+                    params[_lang] = lang
+                    missing_translation_clauses.append(f"(model.{_sql_identifier(field)} ->> %({_lang})s) IS NULL")
+                field_missing_translation_clauses.append(f"""
+                    (    ({" OR ".join(missing_translation_clauses)})
+                     AND model.{_sql_identifier(field)}->>'en_US' IS NOT NULL)
+                """)
+
+            # The information of the translatable fields will be output as a single jsonb dictonary colum
+            # It will be constructed as follows:
+            #     json_build_object("field1", "value of field1", "field2", "value of field2", …)
+            # Here we construct the arguments to 'json_build_object' as a list
+            translatable_field_column_args = []
+            for j, field in enumerate(translatable_fields):
+                _field = f'model{i}_field{j}'
+                params[_field] = field
+                translatable_field_column_args.extend((f"%({_field})s", f"model.{_sql_identifier(field)}"))
+
             queries.append(f"""
                  SELECT %({_model})s AS model,
                         model_data.name AS xmlid,
-                        model.name AS name,
-                        model_data.module AS module
-                   FROM {self.env[model]._table} model
+                        model_data.module AS module,
+                        (json_build_object({" , ".join(translatable_field_column_args)})) AS fields
+                   FROM {_sql_identifier(self.env[model]._table)} model
                    JOIN ir_model_data model_data ON model_data.model = %({_model})s
                                                 AND model.id = model_data.res_id
-                  WHERE ({" OR ".join(missing_translation_clauses)})
-                    AND model.name->>'en_US' IS NOT NULL
+                  WHERE ({" OR ".join(field_missing_translation_clauses)})
                     AND model.company_id IN %(company_ids)s
             """)
+
+        for model in queried_models:
+            self.env[model].flush_model(['id', 'company_id'] + translatable_model_fields[model])
+        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
+
         self._cr.execute(' UNION ALL '.join(queries), params)
         return self._cr.fetchall()
 
@@ -1080,24 +1111,27 @@ class AccountChartTemplate(models.AbstractModel):
                                     xml_id = f"account.{company.id}_{_xml_id}"
                                     translation_importer.model_translations[mname][fname][xml_id][lang] = value
 
-        # translate the name of TEMPLATE_MODELS records that are not created from the chart_template data
+        # translate the TEMPLATE_MODELS records that are not created from the chart_template data
 
         # there are no code translations for 'en_US' since it is the original language
         translation_langs = [lang for lang in langs if lang != 'en_US']
 
-        for (mname, _xml_id, name, module) in self._get_template_model_records_with_untranslated_translatable_name(translation_langs, companies):
-            name_en_US = name['en_US']
-            xml_id = f"{module}.{_xml_id}"
-            for lang in [lang for lang in translation_langs if lang not in name]:
-                if lang in translation_importer.model_translations[mname]['name'][xml_id]:
+        for (mname, _xml_id, module, fields) in self._get_untranslated_translatable_template_model_records(translation_langs, companies):
+            for (field, value) in fields.items():
+                if not value or 'en_US' not in value:
                     continue
-                name_translated = None
-                for code_module in ([module, 'account'] if module != 'account' else ['account']):
-                    name_translated = code_translations.get_python_translations(code_module, lang).get(name_en_US)
-                    if not name_translated:  # manage generic locale (i.e. `fr` instead of `fr_BE`)
-                        name_translated = code_translations.get_python_translations(code_module, lang.split('_')[0]).get(name_en_US)
-                    if name_translated:
-                        translation_importer.model_translations[mname]['name'][xml_id][lang] = name_translated
-                        break
+                value_en_US = value['en_US']
+                xml_id = f"{module}.{_xml_id}"
+                for lang in [lang for lang in translation_langs if lang not in value]:
+                    if lang in translation_importer.model_translations[mname][field][xml_id]:
+                        continue
+                    value_translated = None
+                    for code_module in ([module, 'account'] if module != 'account' else ['account']):
+                        value_translated = code_translations.get_python_translations(code_module, lang).get(value_en_US)
+                        if not value_translated:  # manage generic locale (i.e. `fr` instead of `fr_BE`)
+                            value_translated = code_translations.get_python_translations(code_module, lang.split('_')[0]).get(value_en_US)
+                        if value_translated:
+                            translation_importer.model_translations[mname][field][xml_id][lang] = value_translated
+                            break
 
         translation_importer.save(overwrite=False)
