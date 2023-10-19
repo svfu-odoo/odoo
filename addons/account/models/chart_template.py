@@ -4,7 +4,7 @@ import ast
 from collections import defaultdict
 import csv
 from functools import wraps
-from inspect import getmembers, getfile
+from inspect import getmembers
 import logging
 import re
 
