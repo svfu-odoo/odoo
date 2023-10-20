@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from odoo import Command
+from odoo.addons.account.models.chart_template import code_translations
 from odoo.addons.account.models.chart_template import AccountChartTemplate
 from odoo.addons.account.models.chart_template import TEMPLATE_MODELS
 from odoo.addons.account.tests.common import instantiate_accountman
@@ -467,3 +468,152 @@ class TestChartTemplate(TransactionCase):
         for model in TEMPLATE_MODELS + sub_models:
             data_after = self.env[model].search(get_domain(model))
             self.assertEqual(data_before[model], data_after)
+
+    def test_loading_translations(self):
+        """ Ensure that the translations are loaded correctly (i.e. test '_load_translations').
+        Note: The '_load_translations' function depends on the '_get_chart_template_data' function for some information.
+        The result of '_get_chart_template_data' is mocked in this test (and not tested).
+        """
+        company = self.company_1
+
+        # Mock translation function for this test
+        def _translation(string, lang):
+            return f"{string}<{lang}>"
+
+        # Create records that are not part of the chart template
+        # They will be translated via code translations.
+        # The module used to source the translation is the module from the xml_id or 'account' (as fallback)
+
+        non_chart_data = {
+            'account.group': {
+                # try module 'no_translation'; fallback to 'account'
+                f'no_translation.{company.id}_test_free_account_group': {
+                    'name': '_Free Account Group_',
+                    'code_prefix_start': 333330,
+                    'code_prefix_end': 333339,
+                    'company_id': company.id,
+                },
+            },
+            'account.account': {
+                # translate via'test' module
+                f'test.{company.id}_test_free_account': {
+                    'name': '_Free Account_',
+                    'code': '333331',
+                    'account_type': 'asset_current',
+                    'company_id': company.id,
+                },
+            },
+            'account.tax': {
+                # translate via 'test' module;
+                # 2 translatable fields ('name' and 'description')
+                f'test.{company.id}_test_free_tax': {
+                    "name": "_Free Tax_",
+                    "description": "_Free Tax Description_",
+                    "amount": "0.00",
+                    "company_id": company.id,
+                },
+            },
+        }
+
+        def test_post_load_data(template_code, company, template_data):
+            for model, data in non_chart_data.items():
+                for xml_id, values in data.items():
+                    self.env[model]._load_records([{
+                        'xml_id': xml_id,
+                        'values': values,
+                    }])
+
+        # create a new version of test_get_data (test_get_data2) that contains translation information for some records
+
+        update_for_test_get_data = {
+            # use code translations from module 'test'
+            'account.journal': {
+                'cash': {
+                    'name': "_Cash_",
+                    '__translation_module__': {
+                        'name': 'test',
+                    },
+                },
+            },
+            # different modules for code translations of 'name' and 'description'
+            'account.tax': {
+                'test_tax_1_template': {
+                    'name': "_Tax 1_",
+                    'description': "_Tax 1 description_",
+                    '__translation_module__': {
+                        'name': 'test',
+                        'description': 'test2',
+                    },
+                },
+            },
+            # use 'name@' and not code translation
+            'account.tax.group': {
+                'tax_group_taxes': {
+                    'name': "_Taxes_",
+                    'name@fr': _translation("_Taxes_", "fr"),
+                    '__translation_module__': {
+                        'name': 'test',
+                    },
+                },
+            },
+        }
+
+        def test_get_data2(self, template_code):
+            data = test_get_data(self, template_code)
+            for xmlid, data_update in update_for_test_get_data.items():
+                data[xmlid].update(data_update)
+            return data
+
+        # Load the chart data with 'fr_BE' as user language. This loads the translations too
+        # tranlations should fall back to more generic locale 'fr'
+
+        self.env.user.lang = self.env['res.lang']._activate_lang('fr_BE').code
+
+        mock_python_translations = {
+            ('test', 'fr'): {
+                "_Cash_": _translation("_Cash_", "fr"),
+                "_Tax 1_": _translation("_Tax_1", "fr"),
+                "_Taxes_": "WRONG",  # wrong translation; should not be used
+                "_Free Account_": _translation("_Free Account_", "fr"),
+                "_Free Tax_": _translation("_Free Tax_", "fr"),
+                "_Free Tax Description_": _translation("_Free Tax Description_", "fr"),
+            },
+            ('test2', 'fr'): {
+                "_Tax 1 description_": _translation("_Tax 1 description_", "fr"),
+            },
+            ('account', 'fr'): {
+                "_Free Account Group_": _translation("_Free Account Group_", "fr"),
+            },
+            ('no_translation', 'fr'): {},  # to test fallback to 'account'
+            ('account', 'fr_BE'): {},  # we only want to use our translations
+        }
+        # code_translations.python_translations.update(mock_python_translations)
+
+        with patch.object(AccountChartTemplate, '_get_chart_template_data', side_effect=test_get_data2, autospec=True):
+            # with patch('chart_template.code_translations', code_translations):
+            # with patch.object(code_translations, 'python_translations', side_effect=mock_python_translations, autospec=True):
+            with patch.object(AccountChartTemplate, '_post_load_data', wraps=test_post_load_data):
+                with patch.object(code_translations, 'python_translations', mock_python_translations):
+                    self.env['account.chart.template'].try_loading('test', company=company, install_demo=False)
+
+        # Create a list of tuples we have to check
+        #     (record, field, record_data (from above; used to create the record))
+        fields_to_check = []
+        for chart_like_data in [non_chart_data, update_for_test_get_data]:
+            # Both chart_like_data dictionaries only contain models from TEMPLATE_MODELS
+            for model, data in chart_like_data.items():
+                translatable_fields = [fieldname for (fieldname, field) in self.env[model]._fields.items() if field.translate]
+                for xmlid, record_data in data.items():
+                    record = self.env['account.chart.template'].ref(xmlid)
+                    for field in translatable_fields:
+                        if field in record_data:
+                            fields_to_check.append((record, field, record_data))
+
+        # Check that the tested records have been translated into French
+        for record, field, record_data in fields_to_check:
+            self.assertEqual(record[field], _translation(record_data[field], 'fr'), "The name should be in French")
+
+        # Check that the tested records have received the original language too
+        self.env.user.lang = 'en_US'
+        for record, field, record_data in fields_to_check:
+            self.assertEqual(record[field], record_data[field], "The name should be in English (original term)")
