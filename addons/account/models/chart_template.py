@@ -1006,71 +1006,64 @@ class AccountChartTemplate(models.AbstractModel):
         if not langs or not companies:
             return []
 
+        # Helpers for SQL escaping:
+        # In a last step before executing the query we use 'sql.SQL.format' to
+        #   * escape the SQL identifier names in the query string
+        #   * generate placeholders for the parameters
+        # 'to_escape' stores each value (that needs to be escaped) behind a key that 'sql.SQL.format' and 'execute' can interpolate
+        to_escape = {sql.Identifier: {}, sql.Placeholder: {}}
+        _escape_idx = 0
+        def _escape(_class, value):
+            # '_escape' helps to generate the query string to be formatted with 'sql.SQL.format' and fills 'to_escape' at the same time.
+            # '_class' will be either 'sql.Identifier' or 'sql.Placeholder'
+            nonlocal _escape_idx
+            key = f'_escape_{_escape_idx}'
+            to_escape[_class][key] = value
+            _escape_idx += 1
+            return f"{{{key}}}"
+
         translatable_model_fields = {
             model: [fieldname for (fieldname, field) in self.env[model]._fields.items() if field.translate]
             for model in TEMPLATE_MODELS
         }
-
         queried_models = [model for model in TEMPLATE_MODELS if translatable_model_fields[model]]
 
-        # In a last step before callin 'execute' the SQL identifier names in the query string are escaped.
-        # This is done via sql.SQL.format.
-        # The following functions helps with
-        #   * formatting the identifier that sql.SQL.format can find and interpolate them (wrap in curly braces)
-        #   * Gather a set of the identifiers (to construct the kwargs for sql.SQL.format)
-        sql_identifiers_to_escape = set()
-        def _sql_identifier(identifier):
-            sql_identifiers_to_escape.add(identifier)
-            return f"{{{identifier}}}"
-
-        params = {'company_ids': tuple(companies.ids)}  # parameters for self._cr.execute (to escape values)
-        queries = []  # 1 query per queried model
-
-        for i, model in enumerate(queried_models):
-            _model = f'model{i}'  # named argument for query
-            params[_model] = model
-
+        # generate a list of queries; exactly 1 per model
+        queries = []
+        for model in queried_models:
             translatable_fields = translatable_model_fields[model]
 
-            # We only want records that have at 1 translatable field
-            # with a missing translation for at least 1 of the languages in 'langs'
-            # Here we construct a list of these clauses; 1 clause per (translatable field, language) combination
-            # We do not check whether an 'en_US' value exists;
-            # Since we cannot guarantee that all values of the translatable fields have an 'en_US' value we have to check anyway
-            missing_translation_clauses = []
-            for field in translatable_fields:
-                for j, lang in enumerate(langs):
-                    _lang = f'lang{j}'
-                    params[_lang] = lang
-                    missing_translation_clauses.append(f"(model.{_sql_identifier(field)} ->> %({_lang})s) IS NULL")
+            # We only want records that have at least 1 missing translation in any of its translatable fields
+            missing_translation_clauses = [
+                f"(model.{_escape(sql.Identifier, field)} ->> {_escape(sql.Placeholder, lang)}) IS NULL"
+                for field in translatable_fields
+                for lang in langs
+            ]
 
             # The information about the translatable fields will be output as a single jsonb dictonary column
             # (since different models may have different translatable fields)
-            # It will be constructed as follows:
-            #     json_build_object("field1", "value of field1", "field2", "value of field2", …)
-            # Here we construct the arguments to 'json_build_object' as a list
+            # Here we construct the arguments to a later call to 'json_build_object' as a list
             translatable_field_column_args = []
-            for j, field in enumerate(translatable_fields):
-                _field = f'model{i}_field{j}'
-                params[_field] = field
-                translatable_field_column_args.extend((f"%({_field})s", f"model.{_sql_identifier(field)}"))
+            for field in translatable_fields:
+                translatable_field_column_args.extend((f"{_escape(sql.Placeholder, field)}", f"model.{_escape(sql.Identifier, field)}"))
 
             queries.append(f"""
-                 SELECT %({_model})s AS model,
+                 SELECT {_escape(sql.Placeholder, model)} AS model,
                         model_data.name AS xmlid,
                         model_data.module AS module,
                         (json_build_object({" , ".join(translatable_field_column_args)})) AS fields
-                   FROM {_sql_identifier(self.env[model]._table)} model
-                   JOIN ir_model_data model_data ON model_data.model = %({_model})s
+                   FROM {_escape(sql.Identifier, self.env[model]._table)} model
+                   JOIN ir_model_data model_data ON model_data.model = {_escape(sql.Placeholder, model)}
                                                 AND model.id = model_data.res_id
                   WHERE ({" OR ".join(missing_translation_clauses)})
-                    AND model.company_id IN %(company_ids)s
+                    AND model.company_id IN {_escape(sql.Placeholder, company_ids)}
             """)
 
         query = sql.SQL(' UNION ALL '.join(queries)).format(**{
-            identifier: sql.Identifier(identifier)
-            for identifier in sql_identifiers_to_escape
+            **{ key: sql.Identifier(identifier) for key, identifier in to_escape[sql.Identifier].items()},
+            **{ key: sql.Placeholder(key) for key in to_escape[sql.Placeholder]},  # we only generate the placeholder, not fill it
         })
+        params = {key: value for key, value in to_escape[sql.Placeholder].items()}
 
         for model in queried_models:
             self.env[model].flush_model(['id', 'company_id'] + translatable_model_fields[model])
