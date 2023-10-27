@@ -1006,9 +1006,6 @@ class AccountChartTemplate(models.AbstractModel):
         if not langs or not companies:
             return []
 
-        def _sql_identifier(identifier):
-            return sql.SQL("{}").format(sql.Identifier(identifier)).as_string(self._cr._obj)
-
         translatable_model_fields = {
             model: [fieldname for (fieldname, field) in self.env[model]._fields.items() if field.translate]
             for model in TEMPLATE_MODELS
@@ -1016,8 +1013,18 @@ class AccountChartTemplate(models.AbstractModel):
 
         queried_models = [model for model in TEMPLATE_MODELS if translatable_model_fields[model]]
 
-        params = {'company_ids': tuple(companies.ids)}
-        queries = []
+        # In a last step before callin 'execute' the SQL identifier names in the query string are escaped.
+        # This is done with the help of sql.SQL.format.
+        # The following functions helps to
+        #   * Escape the identifiers so that sql.SQL.format can find and interpolate them
+        #   * Gather a set of the identifiers (to construct the kwargs for sql.SQL.format)
+        sql_identifiers_to_escape = set()
+        def _sql_identifier(identifier):
+            sql_identifiers_to_escape.add(identifier)
+            return f"{{{identifier}}}"
+
+        params = {'company_ids': tuple(companies.ids)}  # passed to self._cr.execute
+        queries = []  # 1 query per queried model
         for i, model in enumerate(queried_models):
             _model = f'model{i}'  # named argument for query
             params[_model] = model
@@ -1066,7 +1073,12 @@ class AccountChartTemplate(models.AbstractModel):
             self.env[model].flush_model(['id', 'company_id'] + translatable_model_fields[model])
         self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
 
-        self._cr.execute(' UNION ALL '.join(queries), params)
+        query = sql.SQL(' UNION ALL '.join(queries)).format(**{
+            identifier: sql.Identifier(identifier)
+            for identifier in sql_identifiers_to_escape
+        })
+
+        self._cr.execute(query, params)
         return self._cr.fetchall()
 
     def _load_translations(self, langs=None, companies=None):
