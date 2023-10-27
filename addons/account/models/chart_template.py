@@ -1014,40 +1014,38 @@ class AccountChartTemplate(models.AbstractModel):
         queried_models = [model for model in TEMPLATE_MODELS if translatable_model_fields[model]]
 
         # In a last step before callin 'execute' the SQL identifier names in the query string are escaped.
-        # This is done with the help of sql.SQL.format.
-        # The following functions helps to
-        #   * Escape the identifiers so that sql.SQL.format can find and interpolate them
+        # This is done via sql.SQL.format.
+        # The following functions helps with
+        #   * formatting the identifier that sql.SQL.format can find and interpolate them (wrap in curly braces)
         #   * Gather a set of the identifiers (to construct the kwargs for sql.SQL.format)
         sql_identifiers_to_escape = set()
         def _sql_identifier(identifier):
             sql_identifiers_to_escape.add(identifier)
             return f"{{{identifier}}}"
 
-        params = {'company_ids': tuple(companies.ids)}  # passed to self._cr.execute
+        params = {'company_ids': tuple(companies.ids)}  # parameters for self._cr.execute (to escape values)
         queries = []  # 1 query per queried model
+
         for i, model in enumerate(queried_models):
             _model = f'model{i}'  # named argument for query
             params[_model] = model
 
             translatable_fields = translatable_model_fields[model]
 
-            # We only want records that have at least 1 translatable field with the following properties
-            #   * The field value is missing for at least 1 of the langages in 'langs'
-            #   * The field value exists in English (to load the translations)
-            # Here we construct a list of these clauses (1 clause per translatable field)
-            field_missing_translation_clauses = []
+            # We only want records that have at 1 translatable field
+            # with a missing translation for at least 1 of the languages in 'langs'
+            # Here we construct a list of these clauses; 1 clause per (translatable field, language) combination
+            # We do not check whether an 'en_US' value exists;
+            # Since we cannot guarantee that all values of the translatable fields have an 'en_US' value we have to check anyway
+            missing_translation_clauses = []
             for field in translatable_fields:
-                missing_translation_clauses = []
                 for j, lang in enumerate(langs):
                     _lang = f'lang{j}'
                     params[_lang] = lang
                     missing_translation_clauses.append(f"(model.{_sql_identifier(field)} ->> %({_lang})s) IS NULL")
-                field_missing_translation_clauses.append(f"""
-                    (    ({" OR ".join(missing_translation_clauses)})
-                     AND model.{_sql_identifier(field)}->>'en_US' IS NOT NULL)
-                """)
 
-            # The information of the translatable fields will be output as a single jsonb dictonary colum
+            # The information about the translatable fields will be output as a single jsonb dictonary column
+            # (since different models may have different translatable fields)
             # It will be constructed as follows:
             #     json_build_object("field1", "value of field1", "field2", "value of field2", …)
             # Here we construct the arguments to 'json_build_object' as a list
@@ -1065,18 +1063,18 @@ class AccountChartTemplate(models.AbstractModel):
                    FROM {_sql_identifier(self.env[model]._table)} model
                    JOIN ir_model_data model_data ON model_data.model = %({_model})s
                                                 AND model.id = model_data.res_id
-                  WHERE ({" OR ".join(field_missing_translation_clauses)})
+                  WHERE ({" OR ".join(missing_translation_clauses)})
                     AND model.company_id IN %(company_ids)s
             """)
-
-        for model in queried_models:
-            self.env[model].flush_model(['id', 'company_id'] + translatable_model_fields[model])
-        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
 
         query = sql.SQL(' UNION ALL '.join(queries)).format(**{
             identifier: sql.Identifier(identifier)
             for identifier in sql_identifiers_to_escape
         })
+
+        for model in queried_models:
+            self.env[model].flush_model(['id', 'company_id'] + translatable_model_fields[model])
+        self.env['ir.model.data'].flush_model(['res_id', 'model', 'name'])
 
         self._cr.execute(query, params)
         return self._cr.fetchall()
@@ -1096,8 +1094,7 @@ class AccountChartTemplate(models.AbstractModel):
 
         translation_importer = TranslationImporter(self.env.cr, verbose=False)
 
-        # translate records that are created from the chart_template data
-
+        # gather translations for records that are created from the chart_template data
         for chart_template, chart_companies in groupby(companies, lambda c: c.chart_template):
             template_data = self.env['account.chart.template']._get_chart_template_data(chart_template)
             template_data.pop('template_data', None)
@@ -1123,11 +1120,8 @@ class AccountChartTemplate(models.AbstractModel):
                                     xml_id = f"account.{company.id}_{_xml_id}"
                                     translation_importer.model_translations[mname][fname][xml_id][lang] = value
 
-        # translate the TEMPLATE_MODELS records that are not created from the chart_template data
-
-        # there are no code translations for 'en_US' since it is the original language
-        translation_langs = [lang for lang in langs if lang != 'en_US']
-
+        # gather translations for the TEMPLATE_MODELS records that are not created from the chart_template data
+        translation_langs = [lang for lang in langs if lang != 'en_US']  # there are no code translations for 'en_US' (original language)
         for (mname, _xml_id, module, fields) in self._get_untranslated_translatable_template_model_records(translation_langs, companies):
             for (field, value) in fields.items():
                 if not value or 'en_US' not in value:
