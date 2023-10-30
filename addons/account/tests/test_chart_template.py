@@ -498,7 +498,7 @@ class TestChartTemplate(TransactionCase):
             'account.group': {
                 # try module 'no_translation'; fallback to 'account'
                 f'no_translation.{company.id}_test_free_account_group': {
-                    'name': '_Free Account Group_',
+                    'name': 'Free Account Group',
                     'code_prefix_start': 333330,
                     'code_prefix_end': 333339,
                     'company_id': company.id,
@@ -507,7 +507,7 @@ class TestChartTemplate(TransactionCase):
             'account.account': {
                 # translate via 'translation' module
                 f'translation.{company.id}_test_free_account': {
-                    'name': '_Free Account_',
+                    'name': 'Free Account',
                     'code': '333331',
                     'account_type': 'asset_current',
                     'company_id': company.id,
@@ -517,8 +517,8 @@ class TestChartTemplate(TransactionCase):
                 # translate via 'translation' module;
                 # 2 translatable fields ('name' and 'description')
                 f'translation.{company.id}_test_free_tax': {
-                    "name": "_Free Tax_",
-                    "description": "_Free Tax Description_",
+                    "name": "Free Tax",
+                    "description": "Free Tax Description",
                     "amount": "0.00",
                     "company_id": company.id,
                 },
@@ -539,7 +539,7 @@ class TestChartTemplate(TransactionCase):
             # use code translations from module 'translation'
             'account.journal': {
                 'cash': {
-                    'name': "_Cash_",
+                    'name': "Cash",
                     '__translation_module__': {
                         'name': 'translation',
                     },
@@ -548,8 +548,8 @@ class TestChartTemplate(TransactionCase):
             # different modules for code translations of 'name' and 'description'
             'account.tax': {
                 'test_tax_1_template': {
-                    'name': "_Tax 1_",
-                    'description': "_Tax 1 Description_",
+                    'name': "Tax 1",
+                    'description': "Tax 1 Description",
                     '__translation_module__': {
                         'name': 'translation',
                         'description': 'translation2',
@@ -559,8 +559,8 @@ class TestChartTemplate(TransactionCase):
             # use 'name@' and not code translation
             'account.tax.group': {
                 'tax_group_taxes': {
-                    'name': "_Taxes_",
-                    'name@fr': _translation("_Taxes_", "fr"),
+                    'name': "Taxes",
+                    'name@fr': _translation("Taxes", "fr"),
                     '__translation_module__': {
                         'name': 'translation',
                     },
@@ -582,7 +582,7 @@ class TestChartTemplate(TransactionCase):
         # init mock translations with wrong & empty values
         mock_python_translations = {
             ('translation', 'fr'): {
-                "_Taxes_": "WRONG",  # wrong translation; should not be used
+                "Taxes": "WRONG",  # wrong translation; should not be used
             },
             ('no_translation', 'fr'): {},  # to test fallback to 'account'
             ('account', 'fr_BE'): {},  # we only want to use our translations
@@ -591,13 +591,13 @@ class TestChartTemplate(TransactionCase):
         # add correct mock translations
         def _add_mock_python_translation(module, lang, value):
             mock_python_translations.setdefault((module, lang), {})[value] = _translation(value, lang)
-        _add_mock_python_translation('translation', 'fr', "_Cash_")
-        _add_mock_python_translation('translation', 'fr', "_Tax 1_")
-        _add_mock_python_translation('translation', 'fr', "_Free Account_")
-        _add_mock_python_translation('translation', 'fr', "_Free Tax_")
-        _add_mock_python_translation('translation', 'fr', "_Free Tax Description_")
-        _add_mock_python_translation('translation2', 'fr', "_Tax 1 Description_")
-        _add_mock_python_translation('account', 'fr', "_Free Account Group_")
+        _add_mock_python_translation('translation', 'fr', "Cash")
+        _add_mock_python_translation('translation', 'fr', "Tax 1")
+        _add_mock_python_translation('translation', 'fr', "Free Account")
+        _add_mock_python_translation('translation', 'fr', "Free Tax")
+        _add_mock_python_translation('translation', 'fr', "Free Tax Description")
+        _add_mock_python_translation('translation2', 'fr', "Tax 1 Description")
+        _add_mock_python_translation('account', 'fr', "Free Account Group")
 
         with patch.object(AccountChartTemplate, '_get_chart_template_mapping', side_effect=local_get_mapping, autospec=True):
             with patch.object(AccountChartTemplate, '_get_chart_template_data', side_effect=local_get_data, autospec=True):
