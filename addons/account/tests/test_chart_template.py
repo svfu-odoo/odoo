@@ -525,7 +525,7 @@ class TestChartTemplate(TransactionCase):
 
         # create a new version of test_get_data (test_get_data2) that contains translation information for some records
 
-        update_for_test_get_data = {
+        translation_update_for_test_get_data = {
             # use code translations from module 'test'
             'account.journal': {
                 'cash': {
@@ -560,7 +560,7 @@ class TestChartTemplate(TransactionCase):
 
         def test_get_data2(self, template_code):
             data = test_get_data(self, template_code)
-            for xmlid, data_update in update_for_test_get_data.items():
+            for xmlid, data_update in translation_update_for_test_get_data.items():
                 data[xmlid].update(data_update)
             return data
 
@@ -599,7 +599,7 @@ class TestChartTemplate(TransactionCase):
         # Create a list of tuples we have to check
         #     (record, field, record_data (from above; used to create the record))
         fields_to_check = []
-        for chart_like_data in [non_chart_data, update_for_test_get_data]:
+        for chart_like_data in [non_chart_data, translation_update_for_test_get_data]:
             # Both chart_like_data dictionaries only contain models from TEMPLATE_MODELS
             for model, data in chart_like_data.items():
                 translatable_fields = [fieldname for (fieldname, field) in self.env[model]._fields.items() if field.translate]
