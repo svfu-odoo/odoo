@@ -1006,6 +1006,8 @@ class AccountChartTemplate(models.AbstractModel):
         if not langs or not companies:
             return []
 
+        company_ids = tuple(companies.ids)
+
         # Helpers for SQL escaping:
         # In a last step before executing the query we use 'sql.SQL.format' to
         #   * escape the SQL identifier names in the query string
