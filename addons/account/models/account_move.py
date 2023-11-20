@@ -4379,11 +4379,15 @@ class AccountMoveLine(models.Model):
 
     def _onchange_balance(self):
         for line in self:
+            is_invoice_line = line.move_id.is_invoice(include_receipts=True)
             if line.currency_id == line.move_id.company_id.currency_id:
                 line.amount_currency = line.balance
             else:
+                # if is_invoice_line:
+                #     # line.amount_currency = line.company_currency_id._convert(line.balance, line.currency_id, line.company_id, line.date)
+                #     line.amount_currency = line.balance line.company_currency_id._convert(line.balance, line.currency_id, line.company_id, line.date)
                 continue
-            if not line.move_id.is_invoice(include_receipts=True):
+            if not is_invoice_line:
                 continue
             line.update(line._get_fields_onchange_balance())
 
