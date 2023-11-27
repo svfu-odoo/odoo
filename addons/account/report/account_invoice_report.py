@@ -45,7 +45,7 @@ class AccountInvoiceReport(models.Model):
     invoice_date_due = fields.Date(string='Due Date', readonly=True)
     account_id = fields.Many2one('account.account', string='Revenue/Expense Account', readonly=True, domain=[('deprecated', '=', False)])
     price_subtotal = fields.Float(string='Untaxed Total', readonly=True)
-    price_total = fields.Float(string='Total in Currency', readonly=True)
+    price_total = fields.Float(string='Total', readonly=True)
     price_average = fields.Float(string='Average Price', readonly=True, group_operator="avg")
     currency_id = fields.Many2one('res.currency', string='Currency', readonly=True)
 
@@ -96,7 +96,12 @@ class AccountInvoiceReport(models.Model):
                 line.quantity / NULLIF(COALESCE(uom_line.factor, 1) / COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
                                                                             AS quantity,
                 -line.balance * currency_table.rate                         AS price_subtotal,
-                line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                ROUND(CAST(line.price_total
+                              * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                              / COALESCE(line.currency_rate, 1.0)
+                           AS numeric)
+                      , line_company_currency.decimal_places)
+                    * currency_table.rate
                                                                             AS price_total,
                 -COALESCE(
                    -- Average line price
@@ -121,6 +126,7 @@ class AccountInvoiceReport(models.Model):
                 INNER JOIN account_move move ON move.id = line.move_id
                 LEFT JOIN res_partner commercial_partner ON commercial_partner.id = move.commercial_partner_id
                 JOIN {currency_table} ON currency_table.company_id = line.company_id
+                LEFT JOIN res_currency line_company_currency ON line_company_currency.id = line.company_currency_id
         '''.format(
             currency_table=self.env['res.currency']._get_query_currency_table(self.env.companies.ids, fields.Date.today())
         )
