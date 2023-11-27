@@ -44,10 +44,11 @@ class AccountInvoiceReport(models.Model):
     product_categ_id = fields.Many2one('product.category', string='Product Category', readonly=True)
     invoice_date_due = fields.Date(string='Due Date', readonly=True)
     account_id = fields.Many2one('account.account', string='Revenue/Expense Account', readonly=True, domain=[('deprecated', '=', False)])
-    price_subtotal = fields.Float(string='Untaxed Total', readonly=True)
-    price_total = fields.Float(string='Total in Currency', readonly=True)
-    price_average = fields.Float(string='Average Price', readonly=True, group_operator="avg")
+    price_subtotal = fields.Monetary(string='Untaxed Total', readonly=True, currency_field='display_currency_id')
+    price_total = fields.Monetary(string='Total', readonly=True, currency_field='display_currency_id')
+    price_average = fields.Monetary(string='Average Price', readonly=True, group_operator="avg", currency_field='display_currency_id')
     currency_id = fields.Many2one('res.currency', string='Currency', readonly=True)
+    display_currency_id = fields.Many2one('res.currency', string='Displayed Currency', readonly=True)
 
     _depends = {
         'account.move': [
@@ -56,6 +57,7 @@ class AccountInvoiceReport(models.Model):
         ],
         'account.move.line': [
             'quantity', 'price_subtotal', 'price_total', 'amount_residual', 'balance', 'amount_currency',
+            'currency_rate',
             'move_id', 'product_id', 'product_uom_id', 'account_id',
             'journal_id', 'company_id', 'currency_id', 'partner_id',
         ],
@@ -72,7 +74,8 @@ class AccountInvoiceReport(models.Model):
 
     @api.model
     def _select(self):
-        return '''
+        display_currency_id = self.env.company.currency_id.id
+        return f'''
             SELECT
                 line.id,
                 line.move_id,
@@ -96,7 +99,10 @@ class AccountInvoiceReport(models.Model):
                 line.quantity / NULLIF(COALESCE(uom_line.factor, 1) / COALESCE(uom_template.factor, 1), 0.0) * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
                                                                             AS quantity,
                 -line.balance * currency_table.rate                         AS price_subtotal,
-                line.price_total * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                line.price_total
+                    * (CASE WHEN move.move_type IN ('in_invoice','out_refund','in_receipt') THEN -1 ELSE 1 END)
+                    / COALESCE(line.currency_rate, 1.0)
+                    * currency_table.rate
                                                                             AS price_total,
                 -COALESCE(
                    -- Average line price
@@ -105,7 +111,8 @@ class AccountInvoiceReport(models.Model):
                    * (NULLIF(COALESCE(uom_line.factor, 1), 0.0) / NULLIF(COALESCE(uom_template.factor, 1), 0.0)),
                    0.0) * currency_table.rate                               AS price_average,
                 COALESCE(partner.country_id, commercial_partner.country_id) AS country_id,
-                line.currency_id                                            AS currency_id
+                line.currency_id                                            AS currency_id,
+                {display_currency_id}                                       AS display_currency_id
         '''
 
     @api.model
