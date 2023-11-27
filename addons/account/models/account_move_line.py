@@ -123,6 +123,7 @@ class AccountMoveLine(models.Model):
         help="Cumulated balance depending on the domain and the order chosen in the view.")
     currency_rate = fields.Float(
         compute='_compute_currency_rate',
+        store=True, precompute=True,
         help="Currency rate from company currency to document currency.",
     )
     amount_currency = fields.Monetary(
