@@ -4171,6 +4171,7 @@ class AccountMoveLine(models.Model):
             sign = 1
 
         amount_currency = price_subtotal * sign
+        # TODO: ?: rounding problem here: balance gets rounded to 0
         balance = currency._convert(amount_currency, company.currency_id, company, date or fields.Date.context_today(self))
         return {
             'amount_currency': amount_currency,
@@ -4416,6 +4417,7 @@ class AccountMoveLine(models.Model):
 
             line.update(line._get_fields_onchange_balance())
             line.update(line._get_price_total_and_subtotal())
+            pass
 
     @api.onchange('quantity', 'discount', 'price_unit', 'tax_ids')
     def _onchange_price_subtotal(self):
