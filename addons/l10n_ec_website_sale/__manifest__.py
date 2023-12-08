@@ -1,6 +1,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'Ecuadorian Website',
+    'countries': ['ec'],
     'version': '1.0',
     'category': 'Accounting/Localizations/Website',
     'description': """Make ecommerce work for Ecuador.""",
@@ -16,6 +17,7 @@
     'demo': [
         'demo/website_demo.xml',
     ],
+    'post_init_hook': 'post_init_hook',
     'installable': True,
     'auto_install': True,
     'license': 'LGPL-3',
