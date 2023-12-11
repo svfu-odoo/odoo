@@ -1533,6 +1533,7 @@ class WebsiteSale(payment_portal.PaymentPortal):
             'country': country,
             'country_states': country.get_website_sale_states(mode=mode[1]),
             'countries': country.get_website_sale_countries(mode=mode[1]),
+            'vat_label': 'VAT',
         }
         return res
 
