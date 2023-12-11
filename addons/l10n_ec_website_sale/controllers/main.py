@@ -19,7 +19,8 @@ class L10nECWebsiteSale(WebsiteSale):
             res.update({
                 'identification': kw.get('l10n_latam_identification_type_id'),
                 'identification_types': request.env['l10n_latam.identification.type'].search(
-                    ['|', ('country_id', '=', False), ('country_id.code', '=', 'EC')])
+                    ['|', ('country_id', '=', False), ('country_id.code', '=', 'EC')]),
+                'vat_label': "Identification Number",
             })
         return res
 

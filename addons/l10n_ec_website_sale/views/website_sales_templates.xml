@@ -40,13 +40,6 @@
                 </t>
             </t>
         </xpath>
-
-        <label for="vat" position="attributes">
-            <attribute name="t-if">res_company.country_id.code != 'EC'</attribute>
-        </label>
-        <label for="vat" position="after">
-            <label t-if="res_company.country_id.code == 'EC'" class="col-form-label label-optional" for="vat">Identification Number</label>
-        </label>
     </template>
 
 </odoo>
