@@ -1239,10 +1239,14 @@ class TestPointOfSaleFlow(TestPointOfSaleCommon):
             statement = self.env['account.move'].search([('journal_id', '=', self.company_data['default_journal_cash'].id)])
             self.assertTrue(invoice.exists() and closing_entry.exists() and misc_reversal_entry.exists() and payment.exists())
             # Check 1: Check that we have reversed every credit line on the closing entry.
+            #          And that the payment term lines are not excluded from the followup.
             for closing_entry_line, misc_reversal_entry_line in zip(closing_entry.line_ids, misc_reversal_entry.line_ids):
                 if closing_entry_line.balance < 0:
                     self.assertEqual(closing_entry_line.balance, -misc_reversal_entry_line.balance)
                     self.assertEqual(closing_entry_line.account_id, misc_reversal_entry_line.account_id)
+                    if closing_entry_line.account_id.account_type in ('asset_receivable', 'liability_payable'):
+                        self.assertEqual(closing_entry_line.blocked, False)
+                        self.assertEqual(misc_reversal_entry_line.blocked, False)
 
             # Check 2: Reconciliation
             # The invoice receivable should be reconciled with the payment receivable of the same account.

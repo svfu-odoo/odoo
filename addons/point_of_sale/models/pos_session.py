@@ -936,6 +936,9 @@ class PosSession(models.Model):
             vals.append(self._get_combine_receivable_vals(payment_method, amounts['amount'], amounts['amount_converted']))
         for payment, amounts in split_receivables_pay_later.items():
             vals.append(self._get_split_receivable_vals(payment, amounts['amount'], amounts['amount_converted']))
+        # Payment related entries should not be excluded from follow-ups
+        for val in vals:
+            val['blocked'] = False
         MoveLine.create(vals)
         return data
 
