@@ -393,6 +393,12 @@ class AccountMove(models.Model):
         required=True,
         compute='_compute_currency_id', inverse='_inverse_currency_id', store=True, readonly=False, precompute=True,
     )
+    currency_rate = fields.Float(
+        string='Currency Rate',
+        compute='_compute_currency_rate', store=True, readonly=False, precompute=True,
+        copy=False,
+        help="Currency rate from company currency to document currency.",
+    )
 
     # === Amount fields === #
     direction_sign = fields.Integer(
@@ -885,6 +891,19 @@ class AccountMove(models.Model):
                 or invoice.journal_id.company_id.currency_id
             )
             invoice.currency_id = currency
+
+    @api.depends('currency_id', 'company_currency_id', 'company_id', 'invoice_date')
+    def _compute_currency_rate(self):
+        for move in self:
+            if move.currency_id:
+                move.currency_rate = self.env['res.currency']._get_conversion_rate(
+                    from_currency=move.company_currency_id,
+                    to_currency=move.currency_id,
+                    company=move.company_id,
+                    date=move.invoice_date or move.date or fields.Date.context_today(move),
+                )
+            else:
+                move.currency_rate = 1
 
     @api.depends('move_type')
     def _compute_direction_sign(self):
