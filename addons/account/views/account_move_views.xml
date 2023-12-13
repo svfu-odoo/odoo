@@ -962,29 +962,50 @@
                                 <label for="journal_id"
                                        groups="account.group_account_readonly"
                                        invisible="context.get('default_journal_id') and context.get('move_type', 'entry') != 'entry'"/>
+                                <label for="currency_id"
+                                       groups="!account.group_account_readonly,base.group_multi_currency"
+                                       invisible="move_type == 'entry'"/>
                                 <div name="journal_div"
                                      class="d-flex"
-                                     groups="account.group_account_readonly"
                                      invisible="context.get('default_journal_id') and context.get('move_type', 'entry') != 'entry'">
-                                    <field name="journal_id"
-                                        options="{'no_create': True, 'no_open': True}"
-                                        readonly="posted_before"/>
-                                    <span class="oe_inline o_form_label mx-3"
-                                          groups="base.group_multi_currency"
-                                          invisible="move_type == 'entry'"> in </span>
-                                    <field name="currency_id"
-                                           groups="base.group_multi_currency"
-                                           invisible="move_type == 'entry'"
-                                           readonly="state != 'draft'"
-                                           options="{'no_create': True}"
-                                           context="{'search_default_active': 1, 'search_default_inactive': 1}"/>
+                                    <t groups="account.group_account_readonly">
+                                        <field name="journal_id"
+                                               options="{'no_create': True, 'no_open': True}"
+                                               readonly="posted_before"/>
+                                        <span class="oe_inline o_form_label mx-3"
+                                              groups="base.group_multi_currency"
+                                              invisible="move_type == 'entry'"> in </span>
+                                    </t>
+                                    <div name="currency_div"
+                                         groups="base.group_multi_currency"
+                                         invisible="move_type == 'entry'">
+                                        <field name="currency_id"
+                                               nolabel="1"
+                                               readonly="state != 'draft'"
+                                               options="{'no_create': True}"
+                                               context="{'search_default_active': 1, 'search_default_inactive': 1}"/>
+                                        <div name="currency_conversion_div"
+                                             class="d-flex text-muted float-start"
+                                             style="white-space: pre;"
+                                             invisible="currency_id == company_currency_id">
+                                                <span class="oe_inline o_form_label">1 </span>
+                                                <field name="company_currency_id"
+                                                       readonly="True"
+                                                       options="{'no_open': True}"
+                                                       />
+                                                <span class="oe_inline o_form_label"> = </span>
+                                                <field name="invoice_currency_rate"
+                                                       widget="float"
+                                                       digits="[12,6]"
+                                                       readonly="True"/>
+                                                <span class="oe_inline o_form_label"> </span>
+                                                <field name="currency_id"
+                                                       readonly="True"
+                                                       options="{'no_open': True}"
+                                                       />
+                                        </div>
+                                    </div>
                                 </div>
-
-                                <field name="currency_id"
-                                       readonly="state != 'draft'"
-                                       groups="!account.group_account_readonly,base.group_multi_currency"
-                                       options="{'no_create': True}"/>
-
                             </group>
                         </group>
                         <notebook>
