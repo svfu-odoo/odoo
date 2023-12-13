@@ -968,12 +968,43 @@
                                     <span class="oe_inline o_form_label mx-3"
                                           groups="base.group_multi_currency"
                                           invisible="move_type == 'entry'"> in </span>
-                                    <field name="currency_id"
-                                           groups="base.group_multi_currency"
-                                           invisible="move_type == 'entry'"
-                                           readonly="state != 'draft'"
-                                           options="{'no_create': True}"
-                                           context="{'search_default_active': 1, 'search_default_inactive': 1}"/>
+                                    <div name="currency_div"
+                                         groups="base.group_multi_currency">
+                                        <field name="currency_id"
+                                               nolabel="1"
+                                               groups="base.group_multi_currency"
+                                               invisible="move_type == 'entry'"
+                                               readonly="state != 'draft'"
+                                               options="{'no_create': True}"
+                                               context="{'search_default_active': 1, 'search_default_inactive': 1}"/>
+                                        <div name="currency_conversion_div"
+                                             groups="base.group_multi_currency"
+                                             class="d-flex flex-row text-muted"
+                                             style="white-space: pre;"
+                                             invisible="currency_id == company_currency_id or move_type == 'entry'">
+                                                <span class="oe_inline o_form_label">1 </span>
+                                                <field name="company_currency_id"
+                                                       nolabel="1"
+                                                       style="width: auto;"
+                                                       readonly="True"
+                                                       options="{'no_open': True}"
+                                                       />
+                                                <span class="oe_inline o_form_label"> = </span>
+                                                <field name="currency_rate"
+                                                       widget="float"
+                                                       digits="[12,6]"
+                                                       nolabel="1"
+                                                       style="width: auto;"
+                                                       readonly="True"/>
+                                                <span class="oe_inline o_form_label"> </span>
+                                                <field name="currency_id"
+                                                       nolabel="1"
+                                                       style="width: auto;"
+                                                       readonly="True"
+                                                       options="{'no_open': True}"
+                                                       />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <field name="currency_id"
