@@ -467,14 +467,14 @@ class TestUBLBE(TestUBLCommon):
         tax_lines = invoice.line_ids.filtered(lambda line: line.display_type == 'tax')
         tax_line_21 = next((line for line in tax_lines if line.name == 'tax_21'))
         tax_line_12 = next((line for line in tax_lines if line.name == 'tax_12'))
-        tax_line_21.amount_currency = -84.03  # distribute 3 cents over 2 lines
-        tax_line_12.amount_currency = -24.01  # distribute 1 cent  over 2 lines
+        tax_line_21.amount_currency = -84.03  # distribute   3 cents over 2 lines
+        tax_line_12.amount_currency = -23.99  # distribute - 1 cent  over 2 lines
         invoice.action_post()
 
         self.assertRecordValues(invoice, [{
             'amount_untaxed': 600.00,
-            'amount_tax': 108.04,  # tax_12: 24.01 ; tax_21: 84.03
-            'amount_total': 708.04
+            'amount_tax': 107.93,  # tax_12: 24.01 ; tax_21: 84.03
+            'amount_total': 707.93
         }])
 
         self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_export_with_changed_taxes.xml')
