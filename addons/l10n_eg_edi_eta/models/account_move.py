@@ -116,14 +116,3 @@ class AccountMove(models.Model):
         self.with_context(no_new_invoice=True).message_post(body=_('ETA invoice has been received'),
                                                             attachments=[('ETA invoice of %s.pdf' % self.name,
                                                                           eta_invoice_pdf.get('data'))])
-
-    def _l10n_eg_edi_exchange_currency_rate(self):
-        """ Calculate the rate based on the balance and amount_currency, so we recuperate the one used at the time"""
-        self.ensure_one()
-        from_currency = self.currency_id
-        to_currency = self.company_id.currency_id
-        if from_currency != to_currency and self.invoice_line_ids:
-            amount_currency = self.invoice_line_ids[0].amount_currency
-            if not float_is_zero(amount_currency, precision_rounding=from_currency.rounding):
-                return abs(self.invoice_line_ids[0].balance / amount_currency)
-        return 1.0

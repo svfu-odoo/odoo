@@ -354,7 +354,7 @@ class AccountMove(models.Model):
 
         # Reference line for finding the conversion rate used in the document
         conversion_rate = float_repr(
-            abs(self.amount_total / self.amount_total_signed), precision_digits=5,
+            self.currency_rate, precision_digits=5,
         ) if convert_to_euros and self.invoice_line_ids else None
 
         invoice_lines = self._l10n_it_edi_get_line_values(reverse_charge_refund, is_downpayment, convert_to_euros)

@@ -37,7 +37,7 @@
         <xpath expr="//p[hasclass('tax_computation_company_currency')]" position="after">
             <tr t-if="o.company_id.country_id.code == 'AE'">
                 <t t-set="exchange_rate"
-                   t-value="abs(o.amount_total_signed) / o.amount_total"/>
+                   t-value="1 / o.currency_rate"/>
                 <td>Exchange Rate</td>
                 <td class="text-end" t-out="exchange_rate" t-options='{"widget": "float", "precision": 5}'/>
             </tr>

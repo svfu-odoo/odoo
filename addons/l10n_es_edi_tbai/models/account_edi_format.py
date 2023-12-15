@@ -329,15 +329,14 @@ class AccountEdiFormat(models.Model):
         refund_sign = (1 if values['is_refund'] else -1)
         invoice_lines = []
         for line in invoice.invoice_line_ids.filtered(lambda line: line.display_type not in ('line_section', 'line_note')):
-            inverse_currency_rate = abs(line.balance / line.amount_currency if line.amount_currency != 0 else 1)
             if line.discount == 100.0:
-                balance_before_discount = line.price_unit * line.quantity * inverse_currency_rate
+                balance_before_discount = line.price_unit * line.quantity / invoice.currency_rate
             else:
                 balance_before_discount = line.balance / (1 - line.discount / 100)
             discount = (balance_before_discount - line.balance) * refund_sign
 
             if not any([t.l10n_es_type == 'sujeto_isp' for t in line.tax_ids]):
-                total = line.price_total * inverse_currency_rate * -refund_sign
+                total = line.price_total / invoice.currency_rate * -refund_sign
             else:
                 total = abs(line.balance) * -refund_sign * (-1 if line.price_total < 0 else 1)
             invoice_lines.append({

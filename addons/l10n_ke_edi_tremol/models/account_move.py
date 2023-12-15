@@ -140,13 +140,11 @@ class AccountMove(models.Model):
 
         lines = self.invoice_line_ids.filtered(lambda l: l.display_type == 'product' and l.quantity and l.price_total)
         # The device expects all monetary values in Kenyan Shillings
-        if self.currency_id == self.company_id.currency_id:
-            currency_rate = 1
         # In the case of a refund, use the currency rate of the original invoice
-        elif self.move_type == 'out_refund' and self.reversed_entry_id:
-            currency_rate = abs(self.reversed_entry_id.amount_total_signed / self.reversed_entry_id.amount_total)
+        if self.move_type == 'out_refund' and self.reversed_entry_id:
+            currency_rate = 1 / self.reversed_entry_id.currency_rate
         else:
-            currency_rate = abs(self.amount_total_signed / self.amount_total)
+            currency_rate = 1 / self.currency_rate
 
         discount_dict = {line.id: line.discount for line in lines if line.price_total > 0}
         for line in lines:

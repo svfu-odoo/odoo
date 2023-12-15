@@ -624,7 +624,7 @@ class TestEdiJson(TestEGEdiCommon):
                                 'unitValue': {
                                     'currencySold': 'AED',
                                     'amountEGP': 610.68889,
-                                    'currencyExchangeRate': 5.04748,
+                                    'currencyExchangeRate': 5.04752,
                                     'amountSold': 120.99,
                                 },
                                 'discount': {'rate': 10.0, 'amount': 61.06889},
@@ -646,7 +646,7 @@ class TestEdiJson(TestEGEdiCommon):
                                 'unitValue': {
                                     'currencySold': 'AED',
                                     'amountEGP': 5045.24598,
-                                    'currencyExchangeRate': 5.04748,
+                                    'currencyExchangeRate': 5.04752,
                                     'amountSold': 999.55,
                                 },
                                 'discount': {'rate': 13.0, 'amount': 3279.40989},
@@ -734,7 +734,7 @@ class TestEdiJson(TestEGEdiCommon):
                                 'unitValue': {
                                     'currencySold': 'AED',
                                     'amountEGP': 504.75556,
-                                    'currencyExchangeRate': 5.04756,
+                                    'currencyExchangeRate': 5.04752,
                                     'amountSold': 100.0,
                                 },
                                 'discount': {'rate': 10.0, 'amount': 50.47556},
@@ -756,7 +756,7 @@ class TestEdiJson(TestEGEdiCommon):
                                 'unitValue': {
                                     'currencySold': 'AED',
                                     'amountEGP': 506.51494,
-                                    'currencyExchangeRate': 5.04756,
+                                    'currencyExchangeRate': 5.04752,
                                     'amountSold': 100.35,
                                 },
                                 'discount': {'rate': 13.0, 'amount': 329.23471},
@@ -814,4 +814,4 @@ class TestEdiJson(TestEGEdiCommon):
             self.assertTrue(generated_files)
             json_file = json.loads(generated_files[0])
             serialized_string = self.env['l10n_eg_edi.thumb.drive']._serialize_for_signing(json_file['request'])
-            self.assertEqual(serialized_string, '"ISSUER""ADDRESS""COUNTRY""EG""GOVERNATE""Cairo""REGIONCITY""Iswan""STREET""12th dec. street""BUILDINGNUMBER""10""POSTALCODE""""BRANCHID""0""NAME""branch partner""TYPE""B""ID""918KKL1""RECEIVER""ADDRESS""COUNTRY""EG""GOVERNATE""Cairo""REGIONCITY""Iswan""STREET""12th dec. street""BUILDINGNUMBER""12""POSTALCODE""""NAME""عميل 1""TYPE""B""ID""EG11231212""DOCUMENTTYPE""i""DOCUMENTTYPEVERSION""1.0""DATETIMEISSUED""2022-03-15T00:00:00Z""TAXPAYERACTIVITYCODE""8121""INTERNALID""INV/2022/00001""INVOICELINES""INVOICELINES""DESCRIPTION""product_a""ITEMTYPE""GS1""ITEMCODE""1KGS1TEST""UNITTYPE""C62""QUANTITY""1.0""INTERNALCODE""""VALUEDIFFERENCE""0.0""TOTALTAXABLEFEES""0.0""ITEMSDISCOUNT""0.0""UNITVALUE""CURRENCYSOLD""AED""AMOUNTEGP""504.75556""CURRENCYEXCHANGERATE""5.04756""AMOUNTSOLD""100.0""DISCOUNT""RATE""10.0""AMOUNT""50.47556""TAXABLEITEMS""TAXABLEITEMS""TAXTYPE""T1""AMOUNT""0.0""SUBTYPE""V003""RATE""0.0""SALESTOTAL""504.75556""NETTOTAL""454.28""TOTAL""454.28""INVOICELINES""DESCRIPTION""product_b""ITEMTYPE""EGS""ITEMCODE""EG-EGS-TEST""UNITTYPE""CMT""QUANTITY""5.0""INTERNALCODE""""VALUEDIFFERENCE""0.0""TOTALTAXABLEFEES""0.0""ITEMSDISCOUNT""0.0""UNITVALUE""CURRENCYSOLD""AED""AMOUNTEGP""506.51494""CURRENCYEXCHANGERATE""5.04756""AMOUNTSOLD""100.35""DISCOUNT""RATE""13.0""AMOUNT""329.23471""TAXABLEITEMS""TAXABLEITEMS""TAXTYPE""T1""AMOUNT""0.0""SUBTYPE""V003""RATE""0.0""SALESTOTAL""2532.57471""NETTOTAL""2203.34""TOTAL""2203.34""TAXTOTALS""TAXTOTALS""TAXTYPE""T1""AMOUNT""0.0""TOTALDISCOUNTAMOUNT""379.71027""TOTALSALESAMOUNT""3037.33027""NETAMOUNT""2657.62""TOTALAMOUNT""2657.62""EXTRADISCOUNTAMOUNT""0.0""TOTALITEMSDISCOUNTAMOUNT""0.0""SIGNATURES""SIGNATURES""1""1"')
+            self.assertEqual(serialized_string, '"ISSUER""ADDRESS""COUNTRY""EG""GOVERNATE""Cairo""REGIONCITY""Iswan""STREET""12th dec. street""BUILDINGNUMBER""10""POSTALCODE""""BRANCHID""0""NAME""branch partner""TYPE""B""ID""918KKL1""RECEIVER""ADDRESS""COUNTRY""EG""GOVERNATE""Cairo""REGIONCITY""Iswan""STREET""12th dec. street""BUILDINGNUMBER""12""POSTALCODE""""NAME""عميل 1""TYPE""B""ID""EG11231212""DOCUMENTTYPE""i""DOCUMENTTYPEVERSION""1.0""DATETIMEISSUED""2022-03-15T00:00:00Z""TAXPAYERACTIVITYCODE""8121""INTERNALID""INV/2022/00001""INVOICELINES""INVOICELINES""DESCRIPTION""product_a""ITEMTYPE""GS1""ITEMCODE""1KGS1TEST""UNITTYPE""C62""QUANTITY""1.0""INTERNALCODE""""VALUEDIFFERENCE""0.0""TOTALTAXABLEFEES""0.0""ITEMSDISCOUNT""0.0""UNITVALUE""CURRENCYSOLD""AED""AMOUNTEGP""504.75556""CURRENCYEXCHANGERATE""5.04752""AMOUNTSOLD""100.0""DISCOUNT""RATE""10.0""AMOUNT""50.47556""TAXABLEITEMS""TAXABLEITEMS""TAXTYPE""T1""AMOUNT""0.0""SUBTYPE""V003""RATE""0.0""SALESTOTAL""504.75556""NETTOTAL""454.28""TOTAL""454.28""INVOICELINES""DESCRIPTION""product_b""ITEMTYPE""EGS""ITEMCODE""EG-EGS-TEST""UNITTYPE""CMT""QUANTITY""5.0""INTERNALCODE""""VALUEDIFFERENCE""0.0""TOTALTAXABLEFEES""0.0""ITEMSDISCOUNT""0.0""UNITVALUE""CURRENCYSOLD""AED""AMOUNTEGP""506.51494""CURRENCYEXCHANGERATE""5.04752""AMOUNTSOLD""100.35""DISCOUNT""RATE""13.0""AMOUNT""329.23471""TAXABLEITEMS""TAXABLEITEMS""TAXTYPE""T1""AMOUNT""0.0""SUBTYPE""V003""RATE""0.0""SALESTOTAL""2532.57471""NETTOTAL""2203.34""TOTAL""2203.34""TAXTOTALS""TAXTOTALS""TAXTYPE""T1""AMOUNT""0.0""TOTALDISCOUNTAMOUNT""379.71027""TOTALSALESAMOUNT""3037.33027""NETAMOUNT""2657.62""TOTALAMOUNT""2657.62""EXTRADISCOUNTAMOUNT""0.0""TOTALITEMSDISCOUNTAMOUNT""0.0""SIGNATURES""SIGNATURES""1""1"')
