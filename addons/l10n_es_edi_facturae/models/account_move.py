@@ -287,7 +287,7 @@ class AccountMove(models.Model):
 
         invoice_issuer_signature_type = 'supplier' if self.move_type == 'out_invoice' else 'customer'
         need_conv = bool(inv_curr != eur_curr)
-        conversion_rate = abs(self.amount_total_in_currency_signed / self.amount_total_signed) if self.amount_total_signed else 0.
+        conversion_rate = self.currency_rate
         total_outst_am_in_currency = abs(self.amount_total_in_currency_signed)
         total_outst_am = abs(self.amount_total_signed)
         total_exec_am_in_currency = abs(self.amount_total_in_currency_signed)
