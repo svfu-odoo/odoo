@@ -339,6 +339,11 @@ class AccountMoveLine(models.Model):
         compute="_compute_price_unit", store=True, readonly=False, precompute=True,
         digits='Product Price',
     )
+    price_subtotal_before_discount = fields.Float(
+        string='Subtotal Before Discount',
+        compute='_compute_price_subtotal_before_discount',
+        compute_sudo=True,  # also True for price_subtotal and price_total since they are stored
+    )
     price_subtotal = fields.Monetary(
         string='Subtotal',
         compute='_compute_totals', store=True,
@@ -842,6 +847,27 @@ class AccountMoveLine(models.Model):
                 line.price_total = taxes_res['total_included']
             else:
                 line.price_total = line.price_subtotal = subtotal
+
+    @api.depends('quantity', 'price_unit', 'tax_ids', 'currency_id')
+    def _compute_price_subtotal_before_discount(self):
+        for line in self:
+            # TODO: what is the point of this if?
+            #       (here and in _compute_totals)
+            if line.display_type != 'product':
+                line.price_subtotal_before_discount = False
+
+            if line.tax_ids:
+                taxes_res_before_discount = line.tax_ids.with_context(round=False, round_base=False).compute_all(
+                    line.price_unit,
+                    quantity=line.quantity,
+                    currency=line.currency_id,
+                    product=line.product_id,
+                    partner=line.partner_id,
+                    is_refund=line.is_refund,
+                )
+                line.price_subtotal_before_discount = taxes_res_before_discount['total_excluded']
+            else:
+                line.price_subtotal_before_discount = line.quantity * line.price_unit
 
     @api.depends('product_id', 'product_uom_id')
     def _compute_price_unit(self):
