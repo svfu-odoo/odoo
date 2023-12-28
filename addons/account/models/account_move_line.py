@@ -3225,10 +3225,7 @@ class AccountMoveLine(models.Model):
         '''
         self.ensure_one()
 
-        if self.discount == 100.0:
-            gross_price_subtotal = self.currency_id.round(self.price_unit * self.quantity)
-        else:
-            gross_price_subtotal = self.currency_id.round(self.price_subtotal / (1 - self.discount / 100.0))
+        gross_price_subtotal = self.currency_id.round(self.price_subtotal_before_discount)
 
         res = {
             'line': self,

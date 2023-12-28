@@ -248,9 +248,11 @@ class AccountEdiFormat(models.Model):
         }
         for line in invoice.invoice_line_ids.filtered(lambda x: x.display_type not in ('line_note', 'line_section')):
             line_tax_details = tax_data.get(line, {})
-            price_unit = self._l10n_eg_edi_round(abs((line.balance / line.quantity) / (1 - (line.discount / 100.0)))) if line.quantity and line.discount != 100.0 else line.price_unit
-            price_subtotal_before_discount = self._l10n_eg_edi_round(abs(line.balance / (1 - (line.discount / 100)))) if line.discount != 100.0 else self._l10n_eg_edi_round(price_unit * line.quantity)
+            price_unit = self._l10n_eg_edi_round(abs(line.price_subtotal_before_discount / line.quantity if line.quantity else line.price_unit) / invoice.currency_rate)
+            price_subtotal_before_discount = self._l10n_eg_edi_round(abs(line.price_subtotal_before_discount) / invoice.currency_rate)
+            price_subtotal = self._l10n_eg_edi_round(abs(line.balance))
             discount_amount = self._l10n_eg_edi_round(price_subtotal_before_discount - abs(line.balance))
+
             item_code = line.product_id.l10n_eg_eta_code or line.product_id.barcode
             lines.append({
                 'description': line.name,
@@ -280,8 +282,8 @@ class AccountEdiFormat(models.Model):
                 for tax_details in line_tax_details.get('tax_details', {}).values() for tax in tax_details.get('group_tax_details')
                 ],
                 'salesTotal': price_subtotal_before_discount,
-                'netTotal': self._l10n_eg_edi_round(abs(line.balance)),
-                'total': self._l10n_eg_edi_round(abs(line.balance) + line_tax_details.get('tax_amount', 0.0)),
+                'netTotal': price_subtotal,
+                'total': price_subtotal + line_tax_details.get('tax_amount', 0.0),
             })
             totals['discount_total'] += discount_amount
             totals['total_price_subtotal_before_discount'] += price_subtotal_before_discount

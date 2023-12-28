@@ -329,14 +329,14 @@ class AccountEdiFormat(models.Model):
         }
         """
         sign = line.move_id.is_inbound() and -1 or 1
+        currency_rate = line.move_id.currency_rate
         tax_details_by_code = self._get_l10n_in_tax_details_by_line_code(line_tax_details.get("tax_details", {}))
         quantity = line.quantity
-        full_discount_or_zero_quantity = line.discount == 100.00 or float_is_zero(quantity, 3)
-        if full_discount_or_zero_quantity:
+        if float_is_zero(quantity, 3):
             # TODO: currency_rate uses move.invoice_date ; previously move.date used
-            unit_price_in_inr = line.price_unit / line.move_id.currency_rate
+            unit_price_in_inr = line.price_unit / currency_rate
         else:
-            unit_price_in_inr = ((sign * line.balance) / (1 - (line.discount / 100))) / quantity
+            unit_price_in_inr = line.price_subtotal_before_discount / quantity / currency_rate
 
         if unit_price_in_inr < 0 and quantity < 0:
             # If unit price and quantity both is negative then

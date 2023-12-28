@@ -290,10 +290,7 @@ class AccountEdiXmlUBL20(models.AbstractModel):
         # Price subtotal with discount subtracted:
         net_price_subtotal = line.price_subtotal
         # Price subtotal without discount subtracted:
-        if line.discount == 100.0:
-            gross_price_subtotal = 0.0
-        else:
-            gross_price_subtotal = line.currency_id.round(net_price_subtotal / (1.0 - (line.discount or 0.0) / 100.0))
+        gross_price_subtotal = line.currency_id.round(line.price_subtotal_before_discount)
 
         allowance_vals = {
             'currency_name': line.currency_id.name,
@@ -308,7 +305,7 @@ class AccountEdiXmlUBL20(models.AbstractModel):
             'allowance_charge_reason_code': 95,
 
             # The discount should be provided as an amount.
-            'amount': gross_price_subtotal - net_price_subtotal,
+            'amount': gross_price_subtotal - net_price_subtotal
         }
 
         return [allowance_vals] + fixed_tax_charge_vals_list
@@ -320,15 +317,8 @@ class AccountEdiXmlUBL20(models.AbstractModel):
         :param line:    An invoice line.
         :return:        A python dictionary.
         """
-        # Price subtotal without discount:
-        net_price_subtotal = line.price_subtotal
-        # Price subtotal with discount:
-        if line.discount == 100.0:
-            gross_price_subtotal = 0.0
-        else:
-            gross_price_subtotal = net_price_subtotal / (1.0 - (line.discount or 0.0) / 100.0)
-        # Price subtotal with discount / quantity:
-        gross_price_unit = gross_price_subtotal / line.quantity if line.quantity else 0.0
+        # Unit price excl. tax before discount
+        gross_price_unit = line.price_subtotal_before_discount / line.quantity if line.quantity else 0.0
 
         uom = super()._get_uom_unece_code(line)
 
