@@ -290,10 +290,7 @@ class AccountEdiXmlUBL20(models.AbstractModel):
         # Price subtotal with discount subtracted:
         net_price_subtotal = line.price_subtotal
         # Price subtotal without discount subtracted:
-        if line.discount == 100.0:
-            gross_price_subtotal = 0.0
-        else:
-            gross_price_subtotal = line.currency_id.round(net_price_subtotal / (1.0 - (line.discount or 0.0) / 100.0))
+        gross_price_subtotal = line.currency_id.round(line.gross_price_unit * line.quantity)
 
         allowance_vals = {
             'currency_name': line.currency_id.name,
@@ -320,16 +317,6 @@ class AccountEdiXmlUBL20(models.AbstractModel):
         :param line:    An invoice line.
         :return:        A python dictionary.
         """
-        # Price subtotal without discount:
-        net_price_subtotal = line.price_subtotal
-        # Price subtotal with discount:
-        if line.discount == 100.0:
-            gross_price_subtotal = 0.0
-        else:
-            gross_price_subtotal = net_price_subtotal / (1.0 - (line.discount or 0.0) / 100.0)
-        # Price subtotal with discount / quantity:
-        gross_price_unit = gross_price_subtotal / line.quantity if line.quantity else 0.0
-
         uom = super()._get_uom_unece_code(line)
 
         return {
@@ -337,7 +324,7 @@ class AccountEdiXmlUBL20(models.AbstractModel):
             'currency_dp': self._get_currency_decimal_places(line.currency_id),
 
             # The price of an item, exclusive of VAT, after subtracting item price discount.
-            'price_amount': gross_price_unit,
+            'price_amount': line.gross_price_unit,  # TODO: round to precision below?
             'product_price_dp': self.env['decimal.precision'].precision_get('Product Price'),
 
             # The number of item units to which the price applies.

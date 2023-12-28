@@ -301,6 +301,28 @@ class TestUBLBE(TestUBLCommon, TestAccountMoveSendCommon):
         )
         self._assert_invoice_attachment(invoice.ubl_cii_xml_id, None, 'from_odoo/bis3_out_invoice_rounding.xml')
 
+    def test_rounding_discount(self):
+        """We should not calculate with the help of rounded numbers (except if necessary). I.e. we export the same unit price (PriceAmount) as on the invoice line (price_unit) and use a appropriate discount (AllowanceCharge/Amount) for that.
+        """
+
+        self.currency_data['currency'].rounding = 0.01
+
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1,
+                    'price_unit': 23.50,
+                    'discount': 23,
+                    'tax_ids': [(6, 0, self.tax_21.ids)],
+                }
+            ],
+        )
+        self._assert_invoice_attachment(invoice.ubl_cii_xml_id, None, 'from_odoo/bis3_out_invoice_rounding_discount.xml')
+
     def test_export_with_fixed_taxes_case1(self):
         # CASE 1: simple invoice with a recupel tax
         invoice = self._generate_move(

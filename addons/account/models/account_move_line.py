@@ -3226,10 +3226,7 @@ class AccountMoveLine(models.Model):
         '''
         self.ensure_one()
 
-        if self.discount == 100.0:
-            gross_price_subtotal = self.currency_id.round(self.price_unit * self.quantity)
-        else:
-            gross_price_subtotal = self.currency_id.round(self.price_subtotal / (1 - self.discount / 100.0))
+        gross_price_subtotal = self.currency_id.round(self.gross_price_unit * self.quantity)
 
         res = {
             'line': self,
@@ -3239,7 +3236,7 @@ class AccountMoveLine(models.Model):
             'price_total_unit': self.currency_id.round(self.price_total / self.quantity) if self.quantity else 0.0,
             'price_discount': gross_price_subtotal - self.price_subtotal,
             'price_discount_unit': (gross_price_subtotal - self.price_subtotal) / self.quantity if self.quantity else 0.0,
-            'gross_price_total_unit': self.currency_id.round(gross_price_subtotal / self.quantity) if self.quantity else 0.0,
+            'gross_price_total_unit': self.currency_id.round(self.gross_price_unit) if self.quantity else 0.0,
             'unece_uom_code': self.product_id.product_tmpl_id.uom_id._get_unece_code(),
         }
         return res

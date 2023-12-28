@@ -217,17 +217,16 @@ class AccountMove(models.Model):
         lines = self.invoice_line_ids.filtered(lambda l: l.display_type not in ('line_note', 'line_section'))
         for num, line in enumerate(lines):
             sign = -1 if line.move_id.is_inbound() else 1
-            price_subtotal = (line.balance * sign) if convert_to_euros else line.price_subtotal
-            # The price_subtotal should be inverted when the line is a reverse charge refund.
+            price_unit = line.gross_price_unit
+            if convert_to_euros:
+                price_subtotal = line.balance * sign
+                price_unit /= line.move_id.currency_rate
+            else:
+                price_subtotal = line.price_subtotal
+            # The price_subtotal and price_unit should be inverted when the line is a reverse charge refund.
             if reverse_charge_refund:
                 price_subtotal = -price_subtotal
-
-            # Unit price
-            price_unit = 0
-            if line.quantity and line.discount != 100.0:
-                price_unit = price_subtotal / ((1 - (line.discount or 0.0) / 100.0) * abs(line.quantity))
-            else:
-                price_unit = line.price_unit
+                price_unit = -price_unit
 
             description = line.name
 

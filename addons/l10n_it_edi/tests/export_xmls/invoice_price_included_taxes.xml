@@ -70,7 +70,7 @@
                 <NumeroLinea>1</NumeroLinea>
                 <Descrizione>something price included</Descrizione>
                 <Quantita>1.00</Quantita>
-                <PrezzoUnitario>656.070000</PrezzoUnitario>
+                <PrezzoUnitario>656.065574</PrezzoUnitario>
                 <PrezzoTotale>656.07</PrezzoTotale>
                 <AliquotaIVA>22.00</AliquotaIVA>
             </DettaglioLinee>
@@ -78,7 +78,7 @@
                 <NumeroLinea>2</NumeroLinea>
                 <Descrizione>something else price included</Descrizione>
                 <Quantita>1.00</Quantita>
-                <PrezzoUnitario>656.070000</PrezzoUnitario>
+                <PrezzoUnitario>656.065574</PrezzoUnitario>
                 <PrezzoTotale>656.07</PrezzoTotale>
                 <AliquotaIVA>22.00</AliquotaIVA>
             </DettaglioLinee>
