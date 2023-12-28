@@ -918,6 +918,7 @@ class AccountMoveLine(models.Model):
 
     @api.depends('tax_ids', 'currency_id', 'partner_id', 'analytic_distribution', 'balance', 'partner_id', 'move_id.partner_id', 'price_unit', 'quantity')
     def _compute_all_tax(self):
+        invoice_move_types = self.env['account.move'].get_invoice_types(include_receipts=True)
         for line in self:
             sign = line.move_id.direction_sign
             if line.display_type == 'tax':
@@ -943,7 +944,10 @@ class AccountMoveLine(models.Model):
                 include_caba_tags=line.move_id.always_tax_exigible,
                 fixed_multiplicator=sign,
             )
-            rate = line.amount_currency / line.balance if line.balance else 1
+            if line.move_type in invoice_move_types:
+                rate = line.move_id.currency_rate
+            else:
+                rate = line.amount_currency / line.balance if line.balance else 1
             line.compute_all_tax_dirty = True
             line.compute_all_tax = {
                 frozendict({
@@ -3113,6 +3117,11 @@ class AccountMoveLine(models.Model):
         is_invoice = self.move_id.is_invoice(include_receipts=True)
         sign = -1 if self.move_id.is_inbound(include_receipts=True) else 1
 
+        if is_invoice:
+            rate = self.move_id.currency_rate
+        else:
+            rate = (abs(self.amount_currency) / abs(self.balance)) if self.balance else 1.0
+
         return self.env['account.tax']._convert_to_tax_base_line_dict(
             self,
             partner=self.partner_id,
@@ -3126,7 +3135,7 @@ class AccountMoveLine(models.Model):
             analytic_distribution=self.analytic_distribution,
             price_subtotal=sign * self.amount_currency,
             is_refund=self.is_refund,
-            rate=(abs(self.amount_currency) / abs(self.balance)) if self.balance else 1.0
+            rate=rate
         )
 
     def _convert_to_tax_line_dict(self):
