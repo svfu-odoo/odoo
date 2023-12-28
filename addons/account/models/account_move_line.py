@@ -339,6 +339,12 @@ class AccountMoveLine(models.Model):
         compute="_compute_price_unit", store=True, readonly=False, precompute=True,
         digits='Product Price',
     )
+    gross_price_unit = fields.Float(
+        # price_unit excl. taxes
+        string='Gross Price Unit',
+        compute='_compute_gross_price_unit',
+        compute_sudo=True,  # also True for price_subtotal and price_total since they are stored
+    )
     price_subtotal = fields.Monetary(
         string='Subtotal',
         compute='_compute_totals', store=True,
@@ -842,6 +848,27 @@ class AccountMoveLine(models.Model):
                 line.price_total = taxes_res['total_included']
             else:
                 line.price_total = line.price_subtotal = subtotal
+
+    @api.depends('quantity', 'price_unit', 'tax_ids', 'currency_id')
+    def _compute_gross_price_unit(self):
+        for line in self:
+            # TODO: what is the point of this if?
+            #       (here and in _compute_totals)
+            if line.display_type != 'product':
+                line.gross_price_unit = False
+
+            if line.tax_ids:
+                taxes_res = line.tax_ids.with_context(round=False, round_base=False).compute_all(
+                    line.price_unit,
+                    quantity=1,
+                    currency=line.currency_id,
+                    product=line.product_id,
+                    partner=line.partner_id,
+                    is_refund=line.is_refund,
+                )
+                line.gross_price_unit = taxes_res['total_excluded']
+            else:
+                line.gross_price_unit = line.price_unit
 
     @api.depends('product_id', 'product_uom_id')
     def _compute_price_unit(self):
