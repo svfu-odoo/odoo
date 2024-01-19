@@ -750,7 +750,9 @@ class AccountMove(models.Model):
                 taxes_map[grouping_key] = {
                     'tax_line': line,
                     'amount': 0.0,
+                    'balance': 0.0,
                     'tax_base_amount': 0.0,
+                    'tax_base_amount_company': 0.0,
                     'grouping_dict': False,
                 }
         if not recompute_tax_base_amount:
@@ -777,14 +779,26 @@ class AccountMove(models.Model):
                 tax_repartition_line = self.env['account.tax.repartition.line'].browse(tax_vals['tax_repartition_line_id'])
                 tax = tax_repartition_line.invoice_tax_id or tax_repartition_line.refund_tax_id
 
+                currency = self.env['res.currency'].browse(grouping_dict['currency_id'])
+                currency_rate = currency._get_conversion_rate(currency,
+                                                              self.company_currency_id,
+                                                              self.company_id,
+                                                              self.date or fields.Date.context_today(self))
+
                 taxes_map_entry = taxes_map.setdefault(grouping_key, {
                     'tax_line': None,
                     'amount': 0.0,
+                    'balance': 0.0,
                     'tax_base_amount': 0.0,
+                    'tax_base_amount_company': 0.0,
                     'grouping_dict': False,
                 })
                 taxes_map_entry['amount'] += tax_vals['amount']
+                taxes_map_entry['balance'] += self.company_currency_id.round(tax_vals['amount_unrounded'] * currency_rate)
                 taxes_map_entry['tax_base_amount'] += self._get_base_amount_to_display(tax_vals['base'], tax_repartition_line, tax_vals['group'])
+                taxes_map_entry['tax_base_amount_company'] += self._get_base_amount_to_display(self.company_currency_id.round(tax_vals['base_unrounded'] * currency_rate),
+                                                                                               tax_repartition_line,
+                                                                                               tax_vals['group'])
                 taxes_map_entry['grouping_dict'] = grouping_dict
 
         # ==== Pre-process taxes_map ====
@@ -806,8 +820,7 @@ class AccountMove(models.Model):
                     self.line_ids -= taxes_map_entry['tax_line']
                 continue
 
-            # tax_base_amount field is expressed using the company currency.
-            tax_base_amount = currency._convert(taxes_map_entry['tax_base_amount'], self.company_currency_id, self.company_id, self.date or fields.Date.context_today(self))
+            tax_base_amount = taxes_map_entry['tax_base_amount_company']
 
             # Recompute only the tax_base_amount.
             if recompute_tax_base_amount:
@@ -815,12 +828,7 @@ class AccountMove(models.Model):
                     taxes_map_entry['tax_line'].tax_base_amount = tax_base_amount
                 continue
 
-            balance = currency._convert(
-                taxes_map_entry['amount'],
-                self.company_currency_id,
-                self.company_id,
-                self.date or fields.Date.context_today(self),
-            )
+            balance = taxes_map_entry['balance']
             amount_currency = currency.round(taxes_map_entry['amount'])
             sign = -1 if self.is_inbound() else 1
             to_write_on_line = {

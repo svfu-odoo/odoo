@@ -586,7 +586,9 @@ class AccountTax(models.Model):
                     tax_base_amount, sign * price_unit, quantity, product, partner)
 
             # Round the tax_amount multiplied by the computed repartition lines factor.
+            tax_amount_unrounded = tax_amount
             tax_amount = round(tax_amount, precision_rounding=prec)
+            factorized_tax_amount_unrounded = tax_amount_unrounded * sum_repartition_factor
             factorized_tax_amount = round(tax_amount * sum_repartition_factor, precision_rounding=prec)
 
             if price_include and total_included_checkpoints.get(i) is None:
@@ -631,11 +633,14 @@ class AccountTax(models.Model):
                 else:
                     repartition_line_tags = repartition_line.tag_ids
 
+                base_unrounded = sign * tax_base_amount
                 taxes_vals.append({
                     'id': tax.id,
                     'name': partner and tax.with_context(lang=partner.lang).name or tax.name,
                     'amount': sign * line_amount,
-                    'base': round(sign * tax_base_amount, precision_rounding=prec),
+                    'amount_unrounded': sign * factorized_tax_amount_unrounded,
+                    'base': round(base_unrounded, precision_rounding=prec),
+                    'base_unrounded': base_unrounded,
                     'sequence': tax.sequence,
                     'account_id': tax.cash_basis_transition_account_id.id if tax.tax_exigibility == 'on_payment' \
                                                                              and not self._context.get('caba_no_transition_account')\
