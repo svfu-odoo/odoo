@@ -588,7 +588,6 @@ class AccountTax(models.Model):
             # Round the tax_amount multiplied by the computed repartition lines factor.
             tax_amount_unrounded = tax_amount
             tax_amount = round(tax_amount, precision_rounding=prec)
-            factorized_tax_amount_unrounded = tax_amount_unrounded * sum_repartition_factor
             factorized_tax_amount = round(tax_amount * sum_repartition_factor, precision_rounding=prec)
 
             if price_include and total_included_checkpoints.get(i) is None:
@@ -622,7 +621,9 @@ class AccountTax(models.Model):
             nber_rounding_steps = int(abs(total_rounding_error / currency.rounding))
             rounding_error = round(nber_rounding_steps and total_rounding_error / nber_rounding_steps or 0.0, precision_rounding=prec)
 
-            for repartition_line, line_amount in zip(tax_repartition_lines, repartition_line_amounts):
+            repartition_line_amounts_unrounded = [tax_amount_unrounded * line.factor for line in tax_repartition_lines]
+
+            for repartition_line, line_amount, line_amount_unrounded in zip(tax_repartition_lines, repartition_line_amounts, repartition_line_amounts_unrounded):
 
                 if nber_rounding_steps:
                     line_amount += rounding_error
@@ -638,7 +639,7 @@ class AccountTax(models.Model):
                     'id': tax.id,
                     'name': partner and tax.with_context(lang=partner.lang).name or tax.name,
                     'amount': sign * line_amount,
-                    'amount_unrounded': sign * factorized_tax_amount_unrounded,
+                    'amount_unrounded': sign * line_amount_unrounded,
                     'base': round(base_unrounded, precision_rounding=prec),
                     'base_unrounded': base_unrounded,
                     'sequence': tax.sequence,
