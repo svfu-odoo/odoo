@@ -386,47 +386,47 @@
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_4_selling_expenses" model="account.account.tag">
-    <field name="name">4. Selling expenses</field>
+    <field name="name">5. Selling expenses</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_5_general_administrative_expenses" model="account.account.tag">
-    <field name="name">5. General and administrative expenses</field>
+    <field name="name">6. General and administrative expenses</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_6_other_operating_results" model="account.account.tag">
-    <field name="name">6. Other operating results</field>
+    <field name="name">7. Other operating results</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_7_income_investments_parent" model="account.account.tag">
-    <field name="name">7. Income from investments in the shares of parent, subsidiaries and associated entities</field>
+    <field name="name">8. Income from investments in the shares of parent, subsidiaries and associated entities</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_8_income_other_longterm_investments_loans" model="account.account.tag">
-    <field name="name">8. Income from other long-term investments and loans</field>
+    <field name="name">9. Income from other long-term investments and loans</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_9_other_interest_similar_income" model="account.account.tag">
-    <field name="name">9. Other interest and similar income</field>
+    <field name="name">10. Other interest and similar income</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_10_impaired_fin_assets_short_investments" model="account.account.tag">
-    <field name="name">10. The impairment of the financial assets and short-term investments</field>
+    <field name="name">11. The impairment of the financial assets and short-term investments</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_11_interest_other_similar_expenses" model="account.account.tag">
-    <field name="name">11. Interest and other similar expenses</field>
+    <field name="name">12. Interest and other similar expenses</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
   <record id="account_account_tag_12_tax_on_profit" model="account.account.tag">
-    <field name="name">12. Tax on profit</field>
+    <field name="name">14. Tax on profit</field>
     <field name="applicability">accounts</field>
     <field name="color" eval="8"/>
   </record>
