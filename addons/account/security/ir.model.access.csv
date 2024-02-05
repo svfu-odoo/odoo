@@ -134,3 +134,9 @@ access_account_report_column_ac_user,account.report.column.ac.user,model_account
 
 access_account_report_external_value_readonly,account.report.external.value.readonly,model_account_report_external_value,account.group_account_readonly,1,0,0,0
 access_account_report_external_value_ac_user,account.report.external.value.ac.user,model_account_report_external_value,account.group_account_manager,1,1,1,1
+
+access_account_report_closing_type_manager,account.report.closing.type.manager,model_account_report_closing_type,account.group_account_manager,1,1,1,1
+access_account_report_closing_type_user,account.report.closing.type.user,model_account_report_closing_type,account.group_account_user,1,0,0,0
+access_account_report_closing_user,account.report.closing.user,model_account_report_closing,account.group_account_user,1,1,1,1
+access_account_report_closing_journal_lock_user,account.report.closing.journal.lock.user,model_account_report_closing_journal_lock,account.group_account_user,1,1,1,1
+

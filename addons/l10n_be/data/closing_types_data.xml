@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="closing_type_vat_be" model="account.report.closing.type">
+        <field name="name">VAT Closing (BE)</field>
+        <field name="move_generator_code">tax_closing</field>
+        <field name="report_id" ref="l10n_be.tax_report_vat"/>
+        <field name="default_periodicity">monthly</field>
+        <field name="lock_type">taxes</field>
+    </record>
+
+</odoo>

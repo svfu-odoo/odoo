@@ -18,6 +18,8 @@ class ResCompany(models.Model):
         string='Generate a code on ticket',
         help="Add a 5-digit code on the receipt to allow the user to request the invoice for an order on the portal.")
 
+    #TODO OCO virer cette fonction, et la remplacer par un override des account.report.closing
+    '''
     @api.constrains('period_lock_date', 'fiscalyear_lock_date')
     def validate_period_lock_date(self):
         """ This constrains makes it impossible to change the period lock date if
@@ -37,3 +39,4 @@ class ResCompany(models.Model):
             if sessions_in_period:
                 sessions_str = ', '.join(sessions_in_period.mapped('name'))
                 raise ValidationError(_("Please close all the point of sale sessions in this period before closing it. Open sessions are: %s ", sessions_str))
+    '''

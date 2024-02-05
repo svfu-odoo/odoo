@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates>
+
+    <t t-name="account.ClosingJournalLockField">
+        <!--TODO OCO passer en readonly sur ce qui est closed-->
+        <table>
+            <tr>
+                <td/>
+                 <t t-foreach="this.axes_data['companies']" t-as="company_data" t-key="company_data['id']">
+                    <td t-esc="company_data['name']"/>
+                 </t>
+            </tr>
+
+            <t t-set="previous_journal_company_id" t-value="undefined"/>
+            <t t-foreach="this.axes_data['journals']" t-as="journal_data" t-key="journal_data['id']">
+                <t t-if="journal_data['company_id'] !== previous_journal_company_id">
+                    <td><strong t-esc="this.company_name_map[journal_data['company_id']]"/></td>
+                    <t t-foreach="this.axes_data['companies']" t-as="company_data" t-key="company_data['id']">
+                        <td/>
+                    </t>
+                    <t t-set="previous_journal_company_id" t-value="journal_data['company_id']"/>
+                </t>
+
+                <tr>
+                    <td t-esc="journal_data['name']"/>
+                    <t t-foreach="this.axes_data['companies']" t-as="company_data" t-key="company_data['id']">
+                        <td>
+                            <ClosingJournalLockCheckBox
+                                t-props="{ companyId: company_data['id'], journalId: journal_data['id'], disabled: !company_data['parent_ids'].includes(journal_data['company_id'])}"
+                            />
+                        </td>
+                    </t>
+                </tr>
+            </t>
+        </table>
+    </t>
+
+    <t t-name="account.ClosingJournalLockCheckBox">
+        <input type="checkbox" t-att-checked="locked" t-on-click="toggleLock" t-att="props.disabled ? {disabled: true} : {}"/>
+    </t>
+
+</templates>

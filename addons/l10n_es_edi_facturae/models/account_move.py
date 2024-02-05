@@ -96,7 +96,7 @@ class AccountMove(models.Model):
 
     def _l10n_es_edi_facturae_get_tax_period(self):
         self.ensure_one()
-        if self.env['res.company'].fields_get(['account_tax_periodicity']):
+        if self.env['res.company'].fields_get(['account_tax_periodicity']): #TODO OCO adapter
             period_start, period_end = self.company_id._get_tax_closing_period_boundaries(self.date)
         else:
             period_start = date_utils.start_of(self.date, 'month')

@@ -33,6 +33,7 @@ Notes:
         'data/tax_report/section_2.xml',
         'data/tax_report/sections_34.xml',
         'data/tax_report/tax_report.xml',
+        'data/closing_types_data.xml',
     ],
     'demo': [
         'demo/demo_company.xml',

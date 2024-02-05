@@ -17,6 +17,12 @@ class AccountChartTemplate(models.AbstractModel):
             'property_stock_account_output_categ_id': 'lu_2011_account_321',
             'property_stock_valuation_account_id': 'lu_2020_account_60761',
             'code_digits': '6',
+            'closing_types': {
+                'l10n_lu.closing_type_vat_lu': {
+                    'tax_closing_payable_account_id': 'lu_2011_account_461412',
+                    'tax_closing_receivable_account_id': 'lu_2011_account_421612',
+                },
+            },
         }
 
     @template('lu', 'res.company')

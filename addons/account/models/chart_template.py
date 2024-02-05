@@ -211,6 +211,10 @@ class AccountChartTemplate(models.AbstractModel):
         for subsidiary in company.child_ids:
             self._load(template_code, subsidiary, install_demo)
 
+        # Enable all closing types targetting entries for this root companies by default
+        if not company.parent_id:
+            self.env['account.report.closing.type'].search([('lock_type', '=', 'entries')]).write({'enabled_company_ids':  [Command.link(company.id)]})
+
     def _pre_reload_data(self, company, template_data, data):
         """Pre-process the data in case of reloading the chart of accounts.
 
@@ -518,6 +522,11 @@ class AccountChartTemplate(models.AbstractModel):
                     'noupdate': True,
                 })
             created_vals[model] = self.with_context(lang='en_US').env[model]._load_records(create_vals)
+
+        # Enable the appropriate tax closing types for the companies created taxes belong to
+        for (company, closing_type), _taxes in groupby(created_vals.get('account.tax', []), lambda x: (x.company_id, x.closing_type_id)):
+            closing_type.write({'enabled_company_ids': [Command.link(company.id)]})
+
         return created_vals
 
     def _post_load_data(self, template_code, company, template_data):
@@ -574,6 +583,16 @@ class AccountChartTemplate(models.AbstractModel):
             value = template_data.get(field)
             if value and field in self.env[model]._fields:
                 self.env['ir.property']._set_default(field, model, self.ref(value).id, company=company)
+
+        # Update closing types' company-dependent fields if needed
+        for closing_type_xmlid, template_vals in template_data.get('closing_types', {}).items():
+            closing_type_vals = {
+                field: self.ref(account_template_key)
+                for field, account_template_key in template_vals.items()
+            }
+            self.env.ref(closing_type_xmlid).with_company(company).write(closing_type_vals)
+
+        self.env['ir.property']._set_default('tax_closing_journal_id', 'account.report.closing.type', self.ref('general').id, company=company.id)
 
     def _get_chart_template_data(self, template_code):
         template_data = defaultdict(lambda: defaultdict(dict))

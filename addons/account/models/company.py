@@ -5,6 +5,7 @@ import calendar
 
 from odoo import fields, models, api, _
 from odoo.exceptions import ValidationError, UserError, RedirectWarning
+from odoo.tools import SQL
 from odoo.tools.mail import is_html_empty
 from odoo.tools.misc import format_date
 from odoo.tools.float_utils import float_round, float_is_zero
@@ -39,21 +40,7 @@ class ResCompany(models.Model):
     #TODO check all the options/fields are in the views (settings + company form view)
     fiscalyear_last_day = fields.Integer(default=31, required=True)
     fiscalyear_last_month = fields.Selection(MONTH_SELECTION, default='12', required=True)
-    period_lock_date = fields.Date(
-        string="Journals Entries Lock Date",
-        tracking=True,
-        help="Only users with the 'Adviser' role can edit accounts prior to and inclusive of this"
-             " date. Use it for period locking inside an open fiscal year, for example.")
-    fiscalyear_lock_date = fields.Date(
-        string="All Users Lock Date",
-        tracking=True,
-        help="No users, including Advisers, can edit accounts prior to and inclusive of this date."
-             " Use it for fiscal year locking for example.")
-    tax_lock_date = fields.Date(
-        string="Tax Return Lock Date",
-        tracking=True,
-        help="No users can edit journal entries related to a tax prior and inclusive of this date.")
-    max_tax_lock_date = fields.Date(compute='_compute_max_tax_lock_date', recursive=True)  # TODO maybe store
+
     transfer_account_id = fields.Many2one('account.account',
         check_company=True,
         domain="[('reconcile', '=', True), ('account_type', '=', 'asset_current'), ('deprecated', '=', False)]", string="Inter-Banks Transfer Account", help="Intermediary account used when moving money from a liqity account to another")
@@ -258,11 +245,6 @@ class ResCompany(models.Model):
             if html:
                 company.invoice_terms_html = html
 
-    @api.depends('parent_id.max_tax_lock_date')
-    def _compute_max_tax_lock_date(self):
-        for company in self:
-            company.max_tax_lock_date = max(company.tax_lock_date or date.min, company.parent_id.max_tax_lock_date or date.min)
-
     @api.model_create_multi
     def create(self, vals_list):
         companies = super().create(vals_list)
@@ -292,11 +274,12 @@ class ResCompany(models.Model):
         for account in accounts:
             account.write({'code': self.get_new_account_code(account.code, old_code, new_code)})
 
-    def _get_fiscalyear_lock_statement_lines_redirect_action(self, unreconciled_statement_lines):
+    @api.model
+    def _get_fiscalyear_lock_statement_lines_redirect_action(self, domain):
         """ Get the action redirecting to the statement lines that are not already reconciled when setting a fiscal
         year lock date.
 
-        :param unreconciled_statement_lines: The statement lines.
+        :param domain: Domain to select the statement lines to open.
         :return: A dictionary representing a window action.
         """
 
@@ -314,73 +297,83 @@ class ResCompany(models.Model):
         else:
             action.update({
                 'view_mode': 'list,form',
-                'domain': [('id', 'in', unreconciled_statement_lines.ids)],
+                'domain': domain,
             })
         return action
 
-    def _validate_fiscalyear_lock(self, values):
-        if values.get('fiscalyear_lock_date'):
-
-            draft_entries = self.env['account.move'].search([
-                ('company_id', 'child_of', self.ids),
-                ('state', '=', 'draft'),
-                ('date', '<=', values['fiscalyear_lock_date'])])
-            if draft_entries:
-                error_msg = _('There are still draft entries in the period you want to lock. You should either post or delete them.')
-                action_error = {
-                    'view_mode': 'tree',
-                    'name': _('Draft Entries'),
-                    'res_model': 'account.move',
-                    'type': 'ir.actions.act_window',
-                    'domain': [('id', 'in', draft_entries.ids)],
-                    'search_view_id': [self.env.ref('account.view_account_move_filter').id, 'search'],
-                    'views': [[self.env.ref('account.view_move_tree').id, 'list'], [self.env.ref('account.view_move_form').id, 'form']],
-                }
-                raise RedirectWarning(error_msg, action_error, _('Show draft entries'))
-
-            unreconciled_statement_lines = self.env['account.bank.statement.line'].search([
-                ('company_id', 'child_of', self.ids),
-                ('is_reconciled', '=', False),
-                ('date', '<=', values['fiscalyear_lock_date']),
-                ('move_id.state', 'in', ('draft', 'posted')),
-            ])
-            if unreconciled_statement_lines:
-                error_msg = _("There are still unreconciled bank statement lines in the period you want to lock."
-                            "You should either reconcile or delete them.")
-                action_error = self._get_fiscalyear_lock_statement_lines_redirect_action(unreconciled_statement_lines)
-                raise RedirectWarning(error_msg, action_error, _('Show Unreconciled Bank Statement Line'))
-
-    def _get_user_fiscal_lock_date(self):
-        """Get the fiscal lock date for this company depending on the user"""
-        lock_date = max(self.period_lock_date or date.min, self.fiscalyear_lock_date or date.min)
-        if self.user_has_groups('account.group_account_manager'):
-            lock_date = self.fiscalyear_lock_date or date.min
-        if self.parent_id:
-            # We need to use sudo, since we might not have access to a parent company.
-            lock_date = max(lock_date, self.sudo().parent_id._get_user_fiscal_lock_date())
-        return lock_date
-
-    def _get_violated_lock_dates(self, accounting_date, has_tax):
+    def _get_violated_lock_dates(self, accounting_date, journal, tax_closing_types=None):
         """Get all the lock dates affecting the current accounting_date.
         :param accoutiaccounting_dateng_date: The accounting date
         :param has_tax: If any taxes are involved in the lines of the invoice
         :return: a list of tuples containing the lock dates ordered chronologically.
-        """
+        """ #TODO OCO REDOC
         self.ensure_one()
-        locks = []
-        user_lock_date = self._get_user_fiscal_lock_date()
-        if accounting_date and user_lock_date and accounting_date <= user_lock_date:
-            locks.append((user_lock_date, _('user')))
-        tax_lock_date = self.max_tax_lock_date
-        if accounting_date and tax_lock_date and has_tax and accounting_date <= tax_lock_date:
-            locks.append((tax_lock_date, _('tax')))
-        locks.sort()
+
+        if not tax_closing_types:
+            tax_closing_types = self.env['account.report.closing.type']
+
+        violated_closing_dates = self.env['account.report.closing']._read_group(
+            [
+                ('date', '>=', accounting_date),
+                *self._get_closing_lock_domain(journal, tax_closing_types)
+            ],
+            groupby=['closing_type_id'],
+            aggregates=['date:min']
+
+        )
+
+        locks = {}
+        for closing_type, lock_date in violated_closing_dates:
+            if closing_type in tax_closing_types and locks.get('tax', date.max) > lock_date:
+                locks['tax'] = lock_date
+            elif locks.get('user', date.max) > lock_date:
+                locks['tax'] = lock_date
+
         return locks
 
-    def write(self, values):
-        #restrict the closing of FY if there are still unposted entries
-        self._validate_fiscalyear_lock(values)
+    def _get_closing_lock_domain(self, journal, tax_closing_types):
+        self.ensure_one()
+        closing_domain = [
+            ('company_ids', 'in', self.id),
+            '|',
+                '&', ('closing_type_id.lock_type', '=', 'taxes'), ('closing_type_id', 'in', tax_closing_types.ids),
+                ('closing_type_id.lock_type', '=', 'entries'),
+            '|',
+                ('state', '=', 'closed'),
+                ('journal_lock_ids', 'any', [
+                    ('company_id', '=', self.id),
+                    ('journal_id', '=', journal.id),
+                ]),
+        ]
 
+        if self.user_has_groups('account.group_account_manager'):
+            # Top-level accounting users are only limited by 'closed' closings, if they have access to its main company.
+            # Else, they behave like any other users with lesser rights.
+            closing_domain += [
+                '|',
+                ('state', '=', 'closed'),
+                ('main_company_id', 'not in', self.env.user.company_ids.ids),
+            ]
+
+        return closing_domain
+
+    def _get_user_lock_date(self, journal):
+        """Get the fiscal lock date for this company depending on the user"""
+        closing_data = self.env['account.report.closing'].search_read(
+            self._get_closing_lock_domain(journal, self.env['account.report.closing.type']),
+            fields=['date'], order='date DESC', limit=1,
+        )
+        return closing_data['date'] if closing_data else date.min
+
+    def _get_lock_date_for_all_entries(self):
+        self.ensure_one()
+        closing_data = self.env['account.report.closing'].search_read(
+            [('state', '=', 'closed'), ('company_ids', 'in', self.id)],
+            fields=['date'], order='date DESC', limit=1,
+        )
+        return closing_data[0]['date'] if closing_data else date.min
+
+    def write(self, values):
         # Reflect the change on accounts
         for company in self:
             if values.get('bank_account_code_prefix'):

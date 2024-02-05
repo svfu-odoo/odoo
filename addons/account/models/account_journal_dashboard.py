@@ -9,7 +9,7 @@ from odoo import models, api, _, fields
 from odoo.exceptions import UserError
 from odoo.osv import expression
 from odoo.release import version
-from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as DF, SQL
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as DF, SQL, groupby
 from odoo.tools.misc import formatLang, format_date as odoo_format_date, get_lang
 
 
@@ -125,21 +125,30 @@ class account_journal(models.Model):
             journal.json_activity_data = json.dumps({'activities': activities[journal.id]})
 
     def _query_has_sequence_holes(self):
-        self.env['res.company'].flush_model(['fiscalyear_lock_date'])
         self.env['account.move'].flush_model(['journal_id', 'date', 'sequence_prefix', 'sequence_number', 'state'])
-        self.env.cr.execute("""
-            SELECT move.journal_id,
-                   move.sequence_prefix
-              FROM account_move move
-              JOIN res_company company ON company.id = move.company_id
-             WHERE move.journal_id = ANY(%(journal_ids)s)
-               AND move.state = 'posted'
-               AND (company.fiscalyear_lock_date IS NULL OR move.date > company.fiscalyear_lock_date)
-          GROUP BY move.journal_id, move.sequence_prefix
-            HAVING COUNT(*) != MAX(move.sequence_number) - MIN(move.sequence_number) + 1
-        """, {
-            'journal_ids': self.ids,
-        })
+
+        queries = []
+        for company, journals in groupby(self, lambda x: x.company_id):
+            lock_date = company._get_lock_date_for_all_entries()
+            #TODO OCO à voir: avec les branches ça a ses limites, ce truc, de toute façon : la lock date pourrait être différent entre le parent et ses enfants ... '(en cas de closing faite à la main
+            # ====> Après bon, pour l'usage de ce truc-ci, je pense que ça devrait aller ...
+            queries.append(SQL(
+                """
+                    SELECT move.journal_id,
+                           move.sequence_prefix
+                      FROM account_move move
+                      JOIN res_company company ON company.id = move.company_id
+                     WHERE move.journal_id = ANY(%(journal_ids)s)
+                       AND move.state = 'posted'
+                       %(lock_date_query)s
+                  GROUP BY move.journal_id, move.sequence_prefix
+                    HAVING COUNT(*) != MAX(move.sequence_number) - MIN(move.sequence_number) + 1
+                """,
+                journal_ids=[journal.id for journal in journals],
+                lock_date_query=SQL("AND move.date > %(lock_date)s", lock_date=lock_date) if lock_date else SQL(),
+            ))
+
+        self.env.cr.execute(SQL(' UNION ALL ').join(queries))
         return self.env.cr.fetchall()
 
     def _compute_has_sequence_holes(self):
@@ -370,7 +379,7 @@ class account_journal(models.Model):
         # Misc Entries (journal items in the default_account not linked to bank.statement.line)
         misc_domain = []
         for journal in bank_cash_journals:
-            date_limit = journal.last_statement_id.date or journal.company_id.fiscalyear_lock_date
+            date_limit = journal.last_statement_id.date or journal.company_id._get_lock_date_for_all_entries()
             misc_domain.append(
                 [('account_id', '=', journal.default_account_id.id), ('date', '>', date_limit)]
                 if date_limit else
@@ -825,7 +834,7 @@ class account_journal(models.Model):
             'search_default_no_st_line_id': True,
             'search_default_posted': False,
         }
-        date_from = self.last_statement_id.date or self.company_id.fiscalyear_lock_date
+        date_from = self.last_statement_id.date or self.company_id._get_lock_date_for_all_entries()
         if date_from:
             action['context'] |= {
                 'date_from': date_from,

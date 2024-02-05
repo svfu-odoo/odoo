@@ -27,6 +27,12 @@ class AccountChartTemplate(models.AbstractModel):
             'property_stock_account_output_categ_id': 'stock_out',
             'property_stock_valuation_account_id': 'stock_valuation',
             'property_stock_account_production_cost_id': 'cost_of_production',
+            'closing_types': {
+                'account.closing_type_vat': {
+                    'tax_closing_payable_account_id': 'tax_payable',
+                    'tax_closing_receivable_account_id': 'tax_receivable',
+                },
+            },
         }
 
     @template('generic_coa', 'res.company')

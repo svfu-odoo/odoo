@@ -251,6 +251,7 @@ class AccountMove(models.Model):
     type_name = fields.Char('Type Name', compute='_compute_type_name')
     country_code = fields.Char(related='company_id.account_fiscal_country_id.code', readonly=True)
     attachment_ids = fields.One2many('ir.attachment', 'res_id', domain=[('res_model', '=', 'account.move')], string='Attachments')
+    report_closing_id = fields.Many2one(string="Parent Closing", comodel_name='account.report.closing')
 
     # === Hash Fields === #
     restrict_mode_hash_table = fields.Boolean(related='journal_id.restrict_mode_hash_table')
@@ -567,7 +568,7 @@ class AccountMove(models.Model):
         help='Technical field to get the domain on the bank',
     )
     # used to display a message when the invoice's accounting date is prior of the tax lock date
-    tax_lock_date_message = fields.Char(compute='_compute_tax_lock_date_message')
+    tax_lock_date_message = fields.Char(compute='_compute_tax_lock_date_message') #TODO OCO c'est pas juste pour la tax lock date, je pense ; renommer ?
     # used for tracking the status of the currency
     display_inactive_currency_warning = fields.Boolean(compute="_compute_display_inactive_currency_warning")
     tax_country_id = fields.Many2one(  # used to filter the available taxes depending on the fiscal country and fiscal position.
@@ -659,7 +660,7 @@ class AccountMove(models.Model):
                 continue
             accounting_date = move.invoice_date
             if not move.is_sale_document(include_receipts=True):
-                accounting_date = move._get_accounting_date(move.invoice_date, move._affect_tax_report())
+                accounting_date = move._get_accounting_date(move.invoice_date, move.journal_id, tax_closing_types=move._get_impacted_tax_closing_types())
             if accounting_date and accounting_date != move.date:
                 move.date = accounting_date
                 # might be protected because `_get_accounting_date` requires the `name`
@@ -1403,8 +1404,7 @@ class AccountMove(models.Model):
     def _compute_tax_lock_date_message(self):
         for move in self:
             accounting_date = move.date or fields.Date.context_today(move)
-            affects_tax_report = move._affect_tax_report()
-            move.tax_lock_date_message = move._get_lock_date_message(accounting_date, affects_tax_report)
+            move.tax_lock_date_message = move._get_lock_date_message(accounting_date)
 
     @api.depends('currency_id')
     def _compute_display_inactive_currency_warning(self):
@@ -2002,16 +2002,39 @@ class AccountMove(models.Model):
 
         return self._cr.fetchall()
 
-    def _check_fiscalyear_lock_date(self):
-        for move in self:
-            lock_date = move.company_id._get_user_fiscal_lock_date()
-            if move.date <= lock_date:
+    def _check_lock_dates(self, check_tax_lock=True, check_user_lock=True, forced_tax_closing_types=None):
+        if not check_tax_lock and not check_user_lock:
+            return
+
+        # We put all tax closing types in each grouping key, making the assumption the same types are often used together, and such a grouping
+        # will hence lead to a lower number of queries being run.
+        grouped_moves = groupby(
+            self,
+            lambda x: (x.journal_id, x.company_id, forced_tax_closing_types or (x._get_impacted_tax_closing_types() if check_tax_lock else None))
+        )
+
+        for (journal, company, tax_closing_types), moves_list in grouped_moves:
+            move_dates = map(lambda x: x.date, moves_list)
+            violated_lock_dates = company._get_violated_lock_dates(min(move_dates), journal, tax_closing_types=tax_closing_types or None)
+
+            #TODO OCO revalider tous ces messages d'erreur avec un PO
+            if check_tax_lock and (tax_lock_date := violated_lock_dates.get('tax')):
+                raise UserError(_(
+                    "The operation is refused as it would impact an already locked tax closing (%s).",
+                    format_date(tax_lock_date),
+                ))
+
+            if check_user_lock and (user_lock_date := violated_lock_dates.get('user')):
                 if self.user_has_groups('account.group_account_manager'):
-                    message = _("You cannot add/modify entries prior to and inclusive of the lock date %s.", format_date(self.env, lock_date))
-                else:
-                    message = _("You cannot add/modify entries prior to and inclusive of the lock date %s. Check the company settings or ask someone with the 'Adviser' role", format_date(self.env, lock_date))
-                raise UserError(message)
-        return True
+                    raise UserError(_(
+                        "You cannot add/modify entries prior to and inclusive of the lock date %s.",
+                        format_date(self.env, user_lock_date),
+                    ))
+
+                raise UserError(_(
+                    "You cannot add/modify entries prior to and inclusive of the lock date %s. Check your closings or ask someone with the 'Accountant' role",
+                    format_date(self.env, user_lock_date),
+                ))
 
     @api.constrains('auto_post', 'invoice_date')
     def _require_bill_date_for_autopost(self):
@@ -2596,8 +2619,10 @@ class AccountMove(models.Model):
     @api.returns('self', lambda value: value.id)
     def copy(self, default=None):
         default = dict(default or {})
+        """ TODO OCO ça, je commente; est-ce qu'on veut garder ? Si on viole la lock date, on aura le warning, et en postant ça changera. Surtout qu'on ne gère pas la tax lock date, là
         if (fields.Date.to_date(default.get('date')) or self.date) <= self.company_id._get_user_fiscal_lock_date():
             default['date'] = self.company_id._get_user_fiscal_lock_date() + timedelta(days=1)
+        """
         copied_am = super().copy(default)
         message_origin = '' if not copied_am.auto_post_origin_id else \
             (Markup('<br/>') + _('This recurring entry originated from %s', copied_am.auto_post_origin_id._get_html_link()))
@@ -2671,13 +2696,11 @@ class AccountMove(models.Model):
                     ('name' in vals and move.name != vals['name'])
                     or ('date' in vals and move.date != vals['date'])
             ):
-                move._check_fiscalyear_lock_date()
-                move.line_ids._check_tax_lock_date()
+                move._check_lock_dates()
 
             # You can't post subtract a move to a locked period.
             if 'state' in vals and move.state == 'posted' and vals['state'] != 'posted':
-                move._check_fiscalyear_lock_date()
-                move.line_ids._check_tax_lock_date()
+                move._check_lock_dates()
 
             if move.journal_id.sequence_override_regex and vals.get('name') and vals['name'] != '/' and not re.match(move.journal_id.sequence_override_regex, vals['name']):
                 if not self.env.user.has_group('account.group_account_manager'):
@@ -2708,8 +2731,7 @@ class AccountMove(models.Model):
                 # You can't post a new journal entry inside a locked period.
                 if 'date' in vals or 'state' in vals:
                     posted_move = self.filtered(lambda m: m.state == 'posted')
-                    posted_move._check_fiscalyear_lock_date()
-                    posted_move.line_ids._check_tax_lock_date()
+                    posted_move._check_lock_dates()
 
                 # Hash the move
                 if vals.get('state') == 'posted':
@@ -3089,7 +3111,8 @@ class AccountMove(models.Model):
                                          ('invoice_date', '!=', False)],
                                         limit=1)
                 if prev_move:
-                    invoice_date = self._get_accounting_date(prev_move.invoice_date, False)
+                    #TODO OCO à vérifier, mais sur l'appel ici, j'ai ajouté la gestion de la tax lock date, qu'on ignorait sinon. Logique, non ?
+                    invoice_date = self._get_accounting_date(prev_move.invoice_date, prev_move.journal_id, tax_closing_types=prev_move._get_impacted_tax_closing_types())
                 record.invoice_date = invoice_date
 
     @api.onchange('quick_edit_total_amount', 'partner_id')
@@ -3733,9 +3756,6 @@ class AccountMove(models.Model):
             for key, mapping in res.items()
         }
 
-    def _affect_tax_report(self):
-        return any(line._affect_tax_report() for line in (self.line_ids | self.invoice_line_ids))
-
     def _get_move_display_name(self, show_ref=False):
         ''' Helper to get the display name of an invoice depending of its type.
         :param show_ref:    A flag indicating of the display name must include or not the journal entry reference.
@@ -3958,8 +3978,8 @@ class AccountMove(models.Model):
             return
         to_reverse = self.env['account.move']
         to_unlink = self.env['account.move']
-        lock_date = self.company_id._get_user_fiscal_lock_date()
         for move in self:
+            lock_date = self.company_id._get_user_lock_date(move.journal_id) #TODO OCO c'était déjà comme ça, mais ... on ne veut pas la tax lock date ici aussi ?
             if move.inalterable_hash or move.date <= lock_date:
                 to_reverse += move
             else:
@@ -4063,10 +4083,9 @@ class AccountMove(models.Model):
             to_post = self
 
         for move in to_post:
-            affects_tax_report = move._affect_tax_report()
-            lock_dates = move._get_violated_lock_dates(move.date, affects_tax_report)
+            lock_dates = move._get_violated_lock_dates()
             if lock_dates:
-                move.date = move._get_accounting_date(move.invoice_date or move.date, affects_tax_report)
+                move.date = move._get_accounting_date(move.invoice_date or move.date, move.journal_id, tax_closing_types=move._get_impacted_tax_closing_types())
 
         # Create the analytic lines in batch is faster as it leads to less cache invalidation.
         to_post.line_ids._create_analytic_lines()
@@ -4522,7 +4541,7 @@ class AccountMove(models.Model):
     def is_outbound(self, include_receipts=True):
         return self.move_type in self.get_outbound_types(include_receipts)
 
-    def _get_accounting_date(self, invoice_date, has_tax):
+    def _get_accounting_date(self, invoice_date, journal, tax_closing_types=False):
         """Get correct accounting date for previous periods, taking tax lock date into account.
         When registering an invoice in the past, we still want the sequence to be increasing.
         We then take the last day of the period, depending on the sequence format.
@@ -4532,13 +4551,13 @@ class AccountMove(models.Model):
         :param invoice_date (datetime.date): The invoice date
         :param has_tax (bool): Iff any taxes are involved in the lines of the invoice
         :return (datetime.date):
-        """
-        lock_dates = self._get_violated_lock_dates(invoice_date, has_tax)
+        """ #TODO OCO redoc
+        lock_dates = self.company_id._get_violated_lock_dates(invoice_date, journal, tax_closing_types=tax_closing_types)
         today = fields.Date.today()
         highest_name = self.highest_name or self._get_last_sequence(relaxed=True)
         number_reset = self._deduce_sequence_number_reset(highest_name)
         if lock_dates:
-            invoice_date = lock_dates[-1][0] + timedelta(days=1)
+            invoice_date = max(lock_dates.values()) + timedelta(days=1)
         if self.is_sale_document(include_receipts=True):
             if lock_dates:
                 if not highest_name or number_reset == 'month':
@@ -4558,29 +4577,38 @@ class AccountMove(models.Model):
                     return max(invoice_date, today)
         return invoice_date
 
-    def _get_violated_lock_dates(self, invoice_date, has_tax):
+    def _get_violated_lock_dates(self):
         """Get all the lock dates affecting the current invoice_date.
         :param invoice_date: The invoice date
         :param has_tax: If any taxes are involved in the lines of the invoice
         :return: a list of tuples containing the lock dates affecting this move, ordered chronologically.
         """
-        return self.company_id._get_violated_lock_dates(invoice_date, has_tax)
+        self.ensure_one()
+        tax_closing_types = self._get_impacted_tax_closing_types()
+        return self.company_id._get_violated_lock_dates(self.date, self.journal_id, tax_closing_types=tax_closing_types)
 
-    def _get_lock_date_message(self, invoice_date, has_tax):
+    def _get_impacted_tax_closing_types(self):
+        #TODO OCO DOC
+        # Calling invoice_line_ids is necessary for new records of invoices ; they won't have line_ids until saved.
+        return self.line_ids._get_impacted_tax_closing_types() | self.invoice_line_ids._get_impacted_tax_closing_types()
+
+    def _get_lock_date_message(self, invoice_date):
         """Get a message describing the latest lock date affecting the specified date.
         :param invoice_date: The date to be checked
         :param has_tax: If any taxes are involved in the lines of the invoice
         :return: a message describing the latest lock date affecting this move and the date it will be
                  accounted on if posted, or False if no lock dates affect this move.
         """
-        lock_dates = self._get_violated_lock_dates(invoice_date, has_tax)
+        self.ensure_one()
+        tax_closing_types = self._get_impacted_tax_closing_types()
+        lock_dates = self.company_id._get_violated_lock_dates(invoice_date, self.journal_id, tax_closing_types=tax_closing_types)
         if lock_dates:
-            invoice_date = self._get_accounting_date(invoice_date, has_tax)
-            lock_date, lock_type = lock_dates[-1]
+            invoice_date = self._get_accounting_date(invoice_date, self.journal_id, tax_closing_types=tax_closing_types)
+            lock_type, lock_date = max(lock_dates.items(), key=lambda x: x[1])
             tax_lock_date_message = _(
-                "The date is being set prior to the %(lock_type)s lock date %(lock_date)s. "
+                "The date is being set prior to the %(lock_date_name)s %(lock_date)s. "
                 "The Journal Entry will be accounted on %(invoice_date)s upon posting.",
-                lock_type=lock_type,
+                lock_date_name=_("tax lock date") if lock_type == 'tax' else _("user lock date"),
                 lock_date=format_date(self.env, lock_date),
                 invoice_date=format_date(self.env, invoice_date))
             return tax_lock_date_message

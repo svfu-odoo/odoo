@@ -388,7 +388,7 @@ class FecExportWizard(models.TransientModel):
             suffix = '-NONOFFICIAL'
 
         # Set fiscal year lock date to the end date (not in test)
-        fiscalyear_lock_date = self.env.company.fiscalyear_lock_date
+        fiscalyear_lock_date = self.env.company.fiscalyear_lock_date #TODO OCO champs retirés
         if not self.test_file and (not fiscalyear_lock_date or fiscalyear_lock_date < self.date_to):
             self.env.company.write({'fiscalyear_lock_date': self.date_to})
 
@@ -401,4 +401,3 @@ class FecExportWizard(models.TransientModel):
     def create_fec_report_action(self):
         # HOOK
         return
-

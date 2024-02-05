@@ -13,6 +13,7 @@ class AccountAccountTag(models.Model):
     active = fields.Boolean(default=True, help="Set active to false to hide the Account Tag without removing it.")
     tax_negate = fields.Boolean(string="Negate Tax Balance", help="Check this box to negate the absolute value of the balance of the lines associated with this tag in tax report computation.")
     country_id = fields.Many2one(string="Country", comodel_name='res.country', help="Country for which this tag is available, when applied on taxes.")
+    report_id = fields.Many2one(string="Report", comodel_name='account.report')# Used to check the violation of tax closings; important for complex setups like OSS in Belgium (mixing OSS and domestic tags)
 
     _sql_constraints = [('name_uniq', "unique(name, applicability, country_id)", "A tag with the same name and applicability already exists in this country.")]
 

@@ -1291,17 +1291,16 @@ class AccountMoveLine(models.Model):
                     line.product_id.product_tmpl_id.uom_id.category_id.name
                 ))
 
-    def _affect_tax_report(self):
-        self.ensure_one()
-        return self.tax_ids or self.tax_line_id or self.tax_tag_ids.filtered(lambda x: x.applicability == "taxes")
+    def _get_impacted_tax_closing_types(self):
+        #TODO OCO DOC
+        closing_types_from_taxes = (
+            self.tax_ids
+            + self.tax_line_id
+        ).closing_type_id
 
-    def _check_tax_lock_date(self):
-        for line in self.filtered(lambda l: l.move_id.state == 'posted'):
-            move = line.move_id
-            if move.company_id.max_tax_lock_date and move.date <= move.company_id.max_tax_lock_date and line._affect_tax_report():
-                raise UserError(_("The operation is refused as it would impact an already issued tax statement. "
-                                  "Please change the journal entry date or the tax lock date set in the settings (%s) to proceed.",
-                                  format_date(self.env, move.company_id.max_tax_lock_date)))
+        closing_types_from_tags = self.tax_tag_ids.report_id.closing_type_ids
+
+        return closing_types_from_taxes | closing_types_from_tags
 
     def _check_reconciliation(self):
         for line in self:
@@ -1528,7 +1527,8 @@ class AccountMoveLine(models.Model):
 
         for line in lines:
             if line.move_id.state == 'posted':
-                line._check_tax_lock_date()
+                impacted_tax_closings = line._get_impacted_tax_closing_types()
+                line.move_id._check_lock_dates(check_user_lock=False, forced_tax_closing_types=impacted_tax_closings)
 
         lines.move_id._synchronize_business_models(['line_ids'])
         lines._check_constrains_account_id_journal_id()
@@ -1566,13 +1566,12 @@ class AccountMoveLine(models.Model):
                 if any(key in vals for key in ('tax_ids', 'tax_line_id')):
                     raise UserError(_('You cannot modify the taxes related to a posted journal item, you should reset the journal entry to draft to do so.'))
 
-            # Check the lock date.
-            if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['fiscal']):
-                line.move_id._check_fiscalyear_lock_date()
-
-            # Check the tax lock date.
-            if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['tax']):
-                line._check_tax_lock_date()
+            # Check the lock dates
+            if line.parent_state == 'posted':
+                line.move_id._check_lock_dates(
+                    check_user_lock=any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['fiscal']),
+                    check_tax_lock=any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['tax']),
+                )
 
             # Check the reconciliation.
             if any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['reconciliation']):
@@ -1657,11 +1656,8 @@ class AccountMoveLine(models.Model):
         # Check the lines are not reconciled (partially or not).
         self._check_reconciliation()
 
-        # Check the lock date. (Only relevant if the move is posted)
-        self.move_id.filtered(lambda m: m.state == 'posted')._check_fiscalyear_lock_date()
-
-        # Check the tax lock date.
-        self._check_tax_lock_date()
+        # Check the lock dates. (Only relevant if the move is posted)
+        self.move_id.filtered(lambda m: m.state == 'posted')._check_lock_dates()
 
         move_container = {'records': self.move_id}
         with self.move_id._check_balanced(move_container),\
@@ -2603,7 +2599,7 @@ class AccountMoveLine(models.Model):
         temp_exchange_move = self.env['account.move'].new({'journal_id': journal.id})
         accounting_exchange_date = temp_exchange_move._get_accounting_date(
             exchange_date or fields.Date.context_today(self),
-            False,
+            journal,
         )
 
         move_vals = {

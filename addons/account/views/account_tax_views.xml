@@ -183,7 +183,8 @@
                                     <field name="company_id" options="{'no_create': True}" groups="base.group_multi_company"/>
                                     <field name="country_id" required="True"/>
                                 </group>
-                                <group name="advanced_booleans">
+                                <group>
+                                    <field name="closing_type_id" options="{'no_create': True}"/>
                                     <field name="price_include" invisible="amount_type == 'group'" readonly="is_used"/>
                                     <field name="include_base_amount" invisible="amount_type == 'group'" readonly="is_used"/>
                                     <field name="is_base_affected"

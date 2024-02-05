@@ -218,6 +218,12 @@
         <field name="domain_force">['|',('company_id','=',False),('company_id', 'in', company_ids)]</field>
     </record>
 
+    <record id="account_report_closing_comp_rule" model="ir.rule">
+        <field name="name">Account Report Closing Company Rule</field>
+        <field name="model_id" ref="model_account_report_closing"/>
+        <field name="domain_force">[('company_ids', 'in', company_ids)]</field>
+    </record>
+
     <!-- Billing record rules for account.move -->
 
     <record id="account_move_see_all" model="ir.rule">

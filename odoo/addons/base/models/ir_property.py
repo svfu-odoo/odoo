@@ -178,20 +178,20 @@ class Property(models.Model):
         return False
 
     @api.model
-    def _set_default(self, name, model, value, company=False):
+    def _set_default(self, name, model, value, company=False, res_id=False):
         """ Set the given field's generic value for the given company.
 
         :param name: the field's name
         :param model: the field's model name
         :param value: the field's value
         :param company: the company (record or id)
-        """
+        """ #TODO OCO DOC + commit à part
         field_id = self.env['ir.model.fields']._get(model, name).id
         company_id = int(company) if company else False
         prop = self.sudo().search([
             ('fields_id', '=', field_id),
             ('company_id', '=', company_id),
-            ('res_id', '=', False),
+            ('res_id', '=', res_id),
         ])
         if prop:
             prop.write({'value': value})
@@ -199,7 +199,7 @@ class Property(models.Model):
             prop.create({
                 'fields_id': field_id,
                 'company_id': company_id,
-                'res_id': False,
+                'res_id': res_id,
                 'name': name,
                 'value': value,
                 'type': self.env[model]._fields[name].type,
