@@ -22,23 +22,23 @@ msgstr "1. Pardavimo pajamos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_9_other_interest_similar_income
-msgid "9. Other interest and similar income"
-msgstr "9. Kitos palūkanų ir panašios pajamos"
+msgid "10. Other interest and similar income"
+msgstr "10. Kitos palūkanų ir panašios pajamos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_10_impaired_fin_assets_short_investments
-msgid "10. The impairment of the financial assets and short-term investments"
-msgstr "10. Finansinio turto ir trumpalaikių investicijų vertės sumažėjimas"
+msgid "11. The impairment of the financial assets and short-term investments"
+msgstr "11. Finansinio turto ir trumpalaikių investicijų vertės sumažėjimas"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_11_interest_other_similar_expenses
-msgid "11. Interest and other similar expenses"
-msgstr "11. Palūkanų ir kitos panašios sąnaudos"
+msgid "12. Interest and other similar expenses"
+msgstr "12. Palūkanų ir kitos panašios sąnaudos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_12_tax_on_profit
-msgid "12. Tax on profit"
-msgstr "12. Pelno mokestis"
+msgid "14. Tax on profit"
+msgstr "14. Pelno mokestis"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_2_cost_of_sales
@@ -52,32 +52,32 @@ msgstr "3. Biologinio turto tikrosios vertės pokytis"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_4_selling_expenses
-msgid "4. Selling expenses"
-msgstr "4. Pardavimo sąnaudos"
+msgid "5. Selling expenses"
+msgstr "5. Pardavimo sąnaudos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_5_general_administrative_expenses
-msgid "5. General and administrative expenses"
-msgstr "5. Bendrosios ir administracinės sąnaudos"
+msgid "6. General and administrative expenses"
+msgstr "6. Bendrosios ir administracinės sąnaudos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_6_other_operating_results
-msgid "6. Other operating results"
-msgstr "6. Kitos veiklos rezultatai"
+msgid "7. Other operating results"
+msgstr "7. Kitos veiklos rezultatai"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_7_income_investments_parent
 msgid ""
-"7. Income from investments in the shares of parent, subsidiaries and "
+"8. Income from investments in the shares of parent, subsidiaries and "
 "associated entities"
 msgstr ""
-"7. Investicijų į patronuojančiosios, patronuojamųjų ir asocijuotųjų įmonių "
+"8. Investicijų į patronuojančiosios, patronuojamųjų ir asocijuotųjų įmonių "
 "akcijas pajamos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_8_income_other_longterm_investments_loans
-msgid "8. Income from other long-term investments and loans"
-msgstr "8. Kitų ilgalaikių investicijų ir paskolų pajamos"
+msgid "9. Income from other long-term investments and loans"
+msgstr "9. Kitų ilgalaikių investicijų ir paskolų pajamos"
 
 #. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_a_1_1
@@ -214,6 +214,11 @@ msgid "A.4.3. Other assets"
 msgstr "A.4.3. Kitas turtas"
 
 #. module: l10n_lt
+#: model:ir.model,name:l10n_lt.model_account_chart_template
+msgid "Account Chart Template"
+msgstr "Sąskaitų plano šablonas"
+
+#. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_b_1_1
 msgid "B.1.1. Raw materials, materials and consumables"
 msgstr "B.1.1. Žaliavos, medžiagos ir komplektavimo detalės"
@@ -339,6 +344,11 @@ msgid "D.5.2. Profit (loss) brought forward"
 msgstr "D.5.2. Ankstesnių metų pelnas (nuostoliai)"
 
 #. module: l10n_lt
+#: model:account.account.tag,name:l10n_lt.account_account_tag_d_6
+msgid "D.6. Common Summary of Accounts"
+msgstr "D.6. Bendra sąskaitų santrauka"
+
+#. module: l10n_lt
 #: model:account.account.tag,name:l10n_lt.account_account_tag_e_grants_subsidies
 msgid "E. GRANTS, SUBSIDIES"
 msgstr "E. DOTACIJOS, SUBSIDIJOS"
@@ -452,3 +462,8 @@ msgstr "G.2.9. Su darbo santykiais susiję įsipareigojimai"
 #: model:account.account.tag,name:l10n_lt.account_account_tag_h_accruals_deferred_income
 msgid "H. ACCRUALS AND DEFERRED INCOME"
 msgstr "H. SUKAUPTOS SĄNAUDOS IR ATEINANČIŲ LAIKOTARPIŲ PAJAMOS"
+
+#. module: l10n_lt
+#: model:ir.model,name:l10n_lt.model_account_journal
+msgid "Journal"
+msgstr "Žurnalas"
