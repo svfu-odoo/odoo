@@ -648,6 +648,7 @@ class AccountMove(models.Model):
             'tax_ids': [(6, 0, tax_line.tax_ids.ids)],
             'tax_tag_ids': [(6, 0, tax_line.tax_tag_ids.ids)],
             'partner_id': tax_line.partner_id.id,
+            'base_line_account_id': False,  # TODO:
         }
 
     @api.model
@@ -670,6 +671,7 @@ class AccountMove(models.Model):
             'tax_ids': [(6, 0, tax_vals['tax_ids'])],
             'tax_tag_ids': [(6, 0, tax_vals['tag_ids'])],
             'partner_id': base_line.partner_id.id,
+            'base_line_account_id': base_line.account_id,
         }
 
     def _get_tax_force_sign(self):
@@ -857,7 +859,7 @@ class AccountMove(models.Model):
                     'company_currency_id': self.company_currency_id.id,
                     'tax_base_amount': tax_base_amount,
                     'exclude_from_invoice_tab': True,
-                    **taxes_map_entry['grouping_dict'],
+                    **{k: v for k, v in taxes_map_entry['grouping_dict'].items() if k != 'base_line_account_id'},  # TODO:?: generic
                 })
 
             if in_draft_mode:
