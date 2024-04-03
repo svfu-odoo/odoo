@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_l10n_it_declaration_of_intent_form" model="ir.ui.view">
+        <field name="name">l10n_it.declaration_of_intent.form</field>
+        <field name="model">l10n_it.declaration_of_intent</field>
+        <field name="inherit_id" ref="l10n_it.view_l10n_it_declaration_of_intent_form"/>
+        <field name="arch" type="xml">
+            <page id="invoice_tab" position="after">
+                <page id="sale_order_tab" string="Sales Orders &amp; Quotations" name="sale_order_tab">
+                    <field name="sale_order_ids" readonly="True"/>
+                </page>
+            </page>
+        </field>
+    </record>
+
+</odoo>

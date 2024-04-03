@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_l10n_it_declaration_of_intent_tree" model="ir.ui.view">
+        <field name="name">l10n_it.declaration_of_intent.tree</field>
+        <field name="model">l10n_it.declaration_of_intent</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'"
+                  decoration-muted="state == 'closed'"
+                  decoration-danger="state == 'revoked'">
+                <control>
+                    <create name="add_line_control" string="Add a Declaration of Intent"/>
+                </control>
+                <field name="partner_id" readonly="state != 'draft'"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="protocol_number_part1" readonly="state != 'draft'"/>
+                <field name="protocol_number_part2" readonly="state != 'draft'"/>
+                <field name="issue_date" readonly="state != 'draft'"/>
+                <field name="start_date" readonly="state != 'draft'"/>
+                <field name="end_date" readonly="state != 'draft'"/>
+                <field name="threshold" readonly="state != 'draft'"/>
+                <field name="currency_id" readonly="state != 'draft'" optional="hidden"/>
+                <field name="consumed_amount" optional="hidden"/>
+                <field name="committed_amount" optional="hidden"/>
+                <field name="remaining_amount"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_l10n_it_declaration_of_intent_form" model="ir.ui.view">
+        <field name="name">l10n_it.declaration_of_intent.form</field>
+        <field name="model">l10n_it.declaration_of_intent</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active"/>
+                    <button string="Validate" invisible="state != 'draft'"
+                            type="object" name="action_validate" class="btn-primary"/>
+                    <button string="Terminate" invisible="state != 'active'"
+                            type="object" name="action_close" class="btn-primary"/>
+                    <button string="Reset to Draft" invisible="state != 'active'"
+                            type="object" name="action_reset_to_draft" class="btn-secondary"/>
+                    <button string="Revoke" invisible="state != 'active'"
+                            type="object" name="action_revoke" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                    </div>
+                    <group name="main_group">
+                        <group name="left_column">
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
+                            <label for="protocol_number_part1" string="Protocol Number"/>
+                            <div name="protocol_div" class="d-flex">
+                                <field name="protocol_number_part1" readonly="state != 'draft'"/>
+                                <span class="o_form_label mx-3">/</span>
+                                <field name="protocol_number_part2" readonly="state != 'draft'"/>
+                            </div>
+                            <field name="issue_date" readonly="state != 'draft'"/>
+                            <label string="Date Range" for="start_date"/>
+                            <div name="date_range_div" class="d-flex">
+                                <field name="start_date" readonly="state != 'draft'"/>
+                                <span class="o_form_label mx-3"> to </span>
+                                <field name="end_date" readonly="state != 'draft'"/>
+                            </div>
+                        </group>
+                        <group name="right_column">
+                            <field name="currency_id" readonly="state != 'draft'" invisible="True"/>
+                            <field name="threshold" widget="monetary" readonly="state != 'draft'"/>
+                            <field name="consumed_amount" widget="monetary"/>
+                            <field name="committed_amount" widget="monetary"/>
+                            <field name="remaining_amount" widget="monetary"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page id="invoice_tab" string="Invoices &amp; Refunds" name="invoice_tab">
+                            <field name="invoice_ids" readonly="True"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_l10n_it_declaration_of_intent_search" model="ir.ui.view">
+        <field name="name">l10n_it.declaration_of_intent.search</field>
+        <field name="model">l10n_it.declaration_of_intent</field>
+        <field name="type">search</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="protocol_number_part1"/>
+                <field name="protocol_number_part2"/>
+                <filter name="l10n_it_declaration_of_intent_active_filter"
+                        string="Active"
+                        domain="[('state','=', 'active')]"
+                        help="Show active declarations of intent"/>
+                <filter name="l10n_it_declaration_of_intent_draft_filter"
+                        string="Draft"
+                        domain="[('state','=', 'draft')]"
+                        help="Show draft declarations of intent"/>
+                <filter name="l10n_it_declaration_of_intent_closed_filter"
+                        string="Closed"
+                        domain="[('state','in', ['closed', 'revoked'])]"
+                        help="Show closed or revoked Declarations of Intent"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_l10n_it_declaration_of_intent" model="ir.actions.act_window">
+        <field name="name">Declaration of Intent</field>
+        <field name="res_model">l10n_it.declaration_of_intent</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_l10n_it_declaration_of_intent_tree"/>
+        <field name="search_view_id" ref="view_l10n_it_declaration_of_intent_search"/>
+        <field name="context">{'l10n_it_declaration_of_intent_active_filter': 1}</field>
+    </record>
+
+</odoo>

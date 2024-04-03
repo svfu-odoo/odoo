@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="res_partner_view_search" model="ir.ui.view">
+        <field name="name">res.partner.search.inherit</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="account.res_partner_view_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='supplier']" position="after">
+                <filter string="Exceeded Declaration of Intent" name="l10n_it_declaration_of_intent_exceeded"
+                        domain="[('l10n_it_declaration_of_intent_ids','any', [('remaining_amount', '&lt;', 0)])]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_l10n_form" model="ir.ui.view">
+        <field name="name">view_partner_l10n_form</field>
+        <field name="inherit_id" ref="base_vat.view_partner_base_vat_form"/>
+        <field name="model">res.partner</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <page name="accounting" position="inside">
+                <group string="Declaration of Intent"
+                       name="l10n_it_group">
+
+                    <field name="l10n_it_is_regular_exporter"/>
+
+                    <field name="l10n_it_declaration_of_intent_ids"
+                           nolabel="1"
+                           colspan="2"
+                           widget="auto_save_res_partner"
+                           domain="[('company_id', '=', current_company_id)]"
+                           invisible="not l10n_it_is_regular_exporter">
+                        <tree decoration-info="state == 'draft'"
+                              decoration-muted="state == 'closed'"
+                              decoration-danger="state == 'revoked'">
+                            <control>
+                                <create name="add_line_control" string="Add a Declaration of Intent"/>
+                            </control>
+                            <field name="protocol_number_part1" readonly="state != 'draft'"/>
+                            <field name="protocol_number_part2" readonly="state != 'draft'"/>
+                            <field name="issue_date" readonly="state != 'draft'"/>
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="end_date" readonly="state != 'draft'"/>
+                            <field name="threshold" readonly="state != 'draft'"/>
+                            <field name="currency_id" readonly="state != 'draft'" optional="hidden"/>
+                            <field name="consumed_amount" optional="hidden"/>
+                            <field name="committed_amount" optional="hidden"/>
+                            <field name="remaining_amount"/>
+                            <field name="state"/>
+                        </tree>
+                    </field>
+
+                </group>
+            </page>
+        </field>
+    </record>
+
+</odoo>

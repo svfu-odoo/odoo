@@ -17,6 +17,21 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "<span class=\"o_form_label mx-3\"> to </span>"
+msgstr "<span class=\"o_form_label mx-3\"> al </span>"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "<span class=\"o_form_label mx-3\">/</span>"
+msgstr ""
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_move_form
+msgid "<span class=\"o_stat_text\">Declaration of Intent</span>"
+msgstr "<span class=\"o_stat_text\">Dichiarazione di Intento</span>"
+
+#. module: l10n_it
 #: model:ir.model,name:l10n_it.model_account_report_expression
 msgid "Accounting Report Expression"
 msgstr "Espressione del rapporto contabile"
@@ -32,9 +47,58 @@ msgid "Accruals and deferrals - Liabilities"
 msgstr "Ratei e risconti - Passivi"
 
 #. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_needaction
+msgid "Action Needed"
+msgstr "Azione richiesta"
+
+#. module: l10n_it
+#: model:ir.model.fields.selection,name:l10n_it.selection__l10n_it_declaration_of_intent__state__active
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Active"
+msgstr "Attivo"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_ids
+msgid "Activities"
+msgstr "Attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_exception_decoration
+msgid "Activity Exception Decoration"
+msgstr "Decorazione eccezione attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_state
+msgid "Activity State"
+msgstr "Stato attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_type_icon
+msgid "Activity Type Icon"
+msgstr "Icona tipo di attività"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_tree
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_partner_l10n_form
+msgid "Add a Declaration of Intent"
+msgstr "Aggiungi Dichiarazione di Intento"
+
+#. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_turnover_section_4
 msgid "Altre operazioni"
 msgstr ""
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_attachment_count
+msgid "Attachment Count"
+msgstr "Conteggio allegati"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_res_partner__l10n_it_declaration_of_intent_ids
+#: model:ir.model.fields,field_description:l10n_it.field_res_users__l10n_it_declaration_of_intent_ids
+msgid "Available Declarations of Intent of this partner"
+msgstr "Dichiarazioni di Intento disponibili di questo partner"
+
 
 #. module: l10n_it
 #: model:account.report.column,name:l10n_it.tax_report_vat_balance
@@ -47,9 +111,30 @@ msgid "Balances, carryovers and interest"
 msgstr "Saldi, riporti e interessi"
 
 #. module: l10n_it
+#: model:ir.model.fields.selection,name:l10n_it.selection__l10n_it_declaration_of_intent__state__closed
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Closed"
+msgstr "Chiuso"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_IMPEGNI
 msgid "Commitments"
 msgstr "Impegni"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__committed_amount
+msgid "Committed Amount"
+msgstr "Importo Impegnato"
+
+#. module: l10n_it
+#: model:ir.model,name:l10n_it.model_res_company
+msgid "Companies"
+msgstr "Aziende"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__company_id
+msgid "Company"
+msgstr "Azienda"
 
 #. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_turnover_section_1
@@ -59,14 +144,117 @@ msgid ""
 msgstr ""
 
 #. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__consumed_amount
+msgid "Consumed Amount"
+msgstr "Importo Consumato"
+
+#. module: l10n_it
+#: model:ir.model,name:l10n_it.model_res_partner
+msgid "Contact"
+msgstr "Contatto"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__create_uid
+msgid "Created by"
+msgstr "Creato da"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__create_date
+msgid "Created on"
+msgstr "Data creazione"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__currency_id
+msgid "Currency"
+msgstr "Valuta"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_C_ATT
 msgid "Current assets"
 msgstr "Attivo circolante"
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Date Range"
+msgstr "Intervallo Date"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__issue_date
+msgid "Date of Issue"
+msgstr "Data di Emissione"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_account_bank_statement_line__l10n_it_declaration_of_intent_date
+#: model:ir.model.fields,field_description:l10n_it.field_account_move__l10n_it_declaration_of_intent_date
+#: model:ir.model.fields,field_description:l10n_it.field_account_payment__l10n_it_declaration_of_intent_date
+msgid "Date on which Declaration of Intent is applied"
+msgstr "Data di applicazione della Dichiarazione di Intento"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__issue_date
+msgid "Date on which the Declaration of Intent was issued"
+msgstr "Data di emissione della Dichiarazione di Intento"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_D_PASS
 msgid "Debts"
 msgstr "Debiti"
+
+#. module: l10n_it
+#: model:ir.actions.act_window,name:l10n_it.action_l10n_it_declaration_of_intent
+#: model:ir.model,name:l10n_it.model_l10n_it_declaration_of_intent
+#: model:ir.model.fields,field_description:l10n_it.field_account_bank_statement_line__l10n_it_declaration_of_intent_id
+#: model:ir.model.fields,field_description:l10n_it.field_account_move__l10n_it_declaration_of_intent_id
+#: model:ir.model.fields,field_description:l10n_it.field_account_payment__l10n_it_declaration_of_intent_id
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_account_invoice_filter
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_partner_l10n_form
+msgid "Declaration of Intent"
+msgstr "Dichiarazione di Intento"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_account_bank_statement_line__l10n_it_intent_threshold_warning
+#: model:ir.model.fields,field_description:l10n_it.field_account_move__l10n_it_intent_threshold_warning
+#: model:ir.model.fields,field_description:l10n_it.field_account_payment__l10n_it_intent_threshold_warning
+msgid "Declaration of Intent Threshold Warning"
+msgstr "Dichiarazione di Intento Avviso di soglia"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/account_move.py:0
+msgid "Declaration of Intent for %s"
+msgstr "Dichiarazione di Intento per %s"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__display_name
+msgid "Display Name"
+msgstr "Nome Visualizzato"
+
+#. module: l10n_it
+#: model:ir.model.fields.selection,name:l10n_it.selection__l10n_it_declaration_of_intent__state__draft
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Draft"
+msgstr "Bozza"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_res_partner__l10n_it_is_regular_exporter
+#: model:ir.model.fields,help:l10n_it.field_res_users__l10n_it_is_regular_exporter
+msgid ""
+"Enable this checkbox to specify a Declaration of Intent on this partner "
+"which is then considered a Regular Exporter"
+msgstr ""
+"Attivare questa casella di controllo per specificare una Dichiarazione di Intento su questo partner "
+"che viene quindi considerato un Esportatore Regolare"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__end_date
+msgid "End Date"
+msgstr "Data fine"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.res_partner_view_search
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_account_invoice_filter
+msgid "Exceeded Declaration of Intent"
+msgstr "Dichiarazione di Intento superata"
 
 #. module: l10n_it
 #: model:ir.model.fields,field_description:l10n_it.field_account_tax__l10n_it_exempt_reason
@@ -89,9 +277,70 @@ msgid "Financial income and expenses"
 msgstr "Proventi e oneri finanziari"
 
 #. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__start_date
+msgid "First date on which the Declaration of Intent is valid"
+msgstr "Prima data di validità della dichiarazione di intento"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_B_ATT
 msgid "Fixed assets"
 msgstr "Immobilizzazioni"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_follower_ids
+msgid "Followers"
+msgstr "Seguito da"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "Seguito da (partner)"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__activity_type_icon
+msgid "Font awesome icon e.g. fa-tasks"
+msgstr "Icona Font Awesome es. fa-tasks"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/account_move.py:0
+msgid ""
+"Given the tax %s is applied, there should be a Declaration of Intent "
+"selected."
+msgstr ""
+"Data l'applicazione dell'imposta %s, dovrebbe esserci una Dichiarazione di Intento "
+"selezionata."
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__has_message
+msgid "Has Message"
+msgstr "Contiene messaggio"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__id
+msgid "ID"
+msgstr "ID"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_exception_icon
+msgid "Icon"
+msgstr "Icona"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__activity_exception_icon
+msgid "Icon to indicate an exception activity."
+msgstr "Icona per indicare un'attività eccezione."
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "Se selezionata, nuovi messaggi richiedono attenzione."
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__message_has_error
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "Se selezionata, alcuni messaggi presentano un errore di consegna."
 
 #. module: l10n_it
 #. odoo-python
@@ -100,13 +349,115 @@ msgstr "Immobilizzazioni"
 msgid ""
 "If the tax amount is 0%, you must enter the exoneration code and the related"
 " law reference."
-msgstr "Se l'importo della tassa è 0%, devi inserire il codice di esenzione "
+msgstr "Se l'importo della tassa è 0%, devi inserire il codice di esenzione"
 " ed il relativo riferimento legislativo"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Invoices & Refunds"
+msgstr "Fatture & Rimborsi"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__invoice_ids
+msgid "Invoices / Refunds"
+msgstr "Fatture / Rimborsi"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/account_move.py:0
+msgid "Le fatture che utilizzano una Dichiarazione di Intento devono avere un importo d'imposta pari a 0."
+msgstr ""
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_is_follower
+msgid "Is Follower"
+msgstr "Sta seguendo"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_res_partner__l10n_it_is_regular_exporter
+#: model:ir.model.fields,field_description:l10n_it.field_res_users__l10n_it_is_regular_exporter
+msgid "Is Regular Exporter"
+msgstr "È Esportatore Regolare"
+
+#. module: l10n_it
+#: model:ir.model,name:l10n_it.model_account_move
+msgid "Journal Entry"
+msgstr "Registrazione contabile"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__write_uid
+msgid "Last Updated by"
+msgstr "Ultimo aggiornamento di"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__write_date
+msgid "Last Updated on"
+msgstr "Ultimo aggiornamento il"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__end_date
+msgid "Last date on which the Declaration of Intent is valid"
+msgstr "Data ultima di validità della Dichiarazione di Intento"
 
 #. module: l10n_it
 #: model:ir.model.fields,field_description:l10n_it.field_account_tax__l10n_it_law_reference
 msgid "Law Reference"
 msgstr "Riferimento legislativo"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_main_attachment_id
+msgid "Main Attachment"
+msgstr "Allegato principale"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_has_error
+msgid "Message Delivery error"
+msgstr "Errore di consegna messaggio"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_ids
+msgid "Messages"
+msgstr "Messaggi"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__my_activity_date_deadline
+msgid "My Activity Deadline"
+msgstr "Scadenza mie attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_date_deadline
+msgid "Next Activity Deadline"
+msgstr "Scadenza prossima attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_summary
+msgid "Next Activity Summary"
+msgstr "Riepilogo prossima attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_type_id
+msgid "Next Activity Type"
+msgstr "Tipologia prossima attività"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_needaction_counter
+msgid "Number of Actions"
+msgstr "Numero di azioni"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_has_error_counter
+msgid "Number of errors"
+msgstr "Numero di errori"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "Numero di messaggi che richiedono un'azione"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "Numero di messaggi con errore di consegna"
 
 #. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_turnover_section_2
@@ -116,9 +467,39 @@ msgid ""
 msgstr ""
 
 #. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__partner_id
+msgid "Partner"
+msgstr "Partner"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid ""
+"Pay attention, the threshold of your Declaration of Intent %s of %s is "
+"exceeded by %s, this document included."
+msgstr ""
+"Fate attenzione, la soglia della vostra Dichiarazione di Intento %s di %s è "
+"superata da %s, questo documento incluso."
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_B_PL
 msgid "Production costs"
 msgstr "Costi della produzione"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__protocol_number_part1
+msgid "Protocol 1"
+msgstr "Protocollo 1"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__protocol_number_part2
+msgid "Protocol 2"
+msgstr "Protocollo 2"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Protocol Number"
+msgstr "Numero di Protocollo"
 
 #. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_B_PASS
@@ -131,14 +512,51 @@ msgid "Receivables from shareholders"
 msgstr "Crediti verso soci"
 
 #. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__remaining_amount
+msgid "Remaining Amount"
+msgstr "Importo Rimanente"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__remaining_amount
+msgid ""
+"Remaining amount after deduction of the consumed and committed amounts."
+msgstr ""
+"Importo rimanente dopo la deduzione degli importi consumati e impegnati."
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Reset to Draft"
+msgstr "Reimposta a bozza"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__activity_user_id
+msgid "Responsible User"
+msgstr "Utente Responsabile"
+
+#. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_reverse_charge_iva
 msgid "Reverse Charge"
 msgstr "Inversione Contabile"
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Revoke"
+msgstr "Revoca"
+
+#. module: l10n_it
+#: model:ir.model.fields.selection,name:l10n_it.selection__l10n_it_declaration_of_intent__state__revoked
+msgid "Revoked"
+msgstr "Revocato"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_RISCHI
 msgid "Risks"
 msgstr "Rischi"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr ""
 
 #. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_C_PASS
@@ -151,6 +569,21 @@ msgid "Shareholders' Equity"
 msgstr ""
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Show active declarations of intent"
+msgstr "Mostra Dichiarazioni di intento attive"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Show closed or revoked Declarations of Intent"
+msgstr "Mostra dichiarazioni di intento chiuse o revocate"
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_search
+msgid "Show draft declarations of intent"
+msgstr "Mostra bozze di dichiarazioni di intento."
+
+#. module: l10n_it
 #. odoo-python
 #: code:addons/l10n_it/models/account_tax.py:0
 #, python-format
@@ -158,14 +591,132 @@ msgid "Split Payment is not compatible with exoneration of kind 'N6'"
 msgstr "Lo Split Payment non è compatibile con l'esenzione di tipo 'N6'"
 
 #. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__start_date
+msgid "Start Date"
+msgstr "Data Inizio"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__state
+msgid "State"
+msgstr "Stato"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__activity_state
+msgid ""
+"Status based on activities\n"
+"Overdue: Due date is already passed\n"
+"Today: Activity date is today\n"
+"Planned: Future activities."
+msgstr ""
+"Stato basato sulle attività\n"
+"In ritardo: scadenza già superata\n"
+"Oggi: attività in data odierna\n"
+"Pianificato: attività future."
+
+#. module: l10n_it
+#: model:ir.model,name:l10n_it.model_account_tax
+msgid "Tax"
+msgstr "Imposta"
+
+#. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_operazione_imponibile
 msgid "Taxable transaction"
 msgstr "Operazione Imponibile"
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Terminate"
+msgstr "Terminare"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid "The Declaration of Intent belongs to company %s, not %s."
+msgstr "La Dichiarazione di Intento appartiene alla società %s, non a %s."
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid "The Declaration of Intent belongs to partner %s, not %s."
+msgstr "La Dichiarazione di Intento appartiene al partner %s, non a %s."
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid "The Declaration of Intent is not active."
+msgstr "La Dichiarazione di Intento non è attiva."
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid "The Declaration of Intent is valid from %s to %s, not on %s."
+msgstr "La Dichiarazione di Intento è valida dal %s a %s, non il %s."
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid "The Declaration of Intent uses currency %s, not %s."
+msgstr "La Dichiarazione di Intento utilizza la valuta %s, non %s."
+
+#. module: l10n_it
+#: model:ir.model.constraint,message:l10n_it.constraint_l10n_it_declaration_of_intent_protocol_number_unique
+msgid ""
+"The Protocol Number of a Declaration of Intent must be unique! Please choose"
+" another one."
+msgstr "Il numero di protocollo di una Dichiarazione di Intento deve essere univoco! Per favore scegline"
+" un altro."
+
+#. module: l10n_it
+#: model:ir.model.constraint,message:l10n_it.constraint_l10n_it_declaration_of_intent_threshold_positive
+msgid "The Threshold of a Declaration of Intent must be positive."
+msgstr "La Soglia di una Dichiarazione di Intento deve essere positiva."
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__state
+msgid ""
+"The state of this Declaration of Intent. \n"
+"- 'draft' means that the Declaration of Intent still needs to be confirmed before being usable. \n"
+"- 'active' means that the Declaration of Intent is usable. \n"
+"- 'closed' designates that the Declaration of Intent has been marked as not to use anymore without invalidating usages of it.- 'revoked' means the Declaration of Intent should not have been used. You will probably need to revert previous usages of it, if any.\n"
+msgstr ""
+"Lo stato di questa Dichiarazione di Intento. \n"
+"- 'bozza' significa che la Dichiarazione di Intento deve ancora essere confermata prima di essere utilizzabile. \n"
+"- 'attivo' significa che la Dichiarazione di Intento è utilizzabile. \n"
+"- 'chiuso' indica che la Dichiarazione di Intento è stata contrassegnata come da non utilizzare più senza invalidarne gli usi.- 'revocato' significa che la Dichiarazione di Intento non avrebbe dovuto essere utilizzata. Probabilmente sarà necessario ripristinarne gli usi precedenti , se presente.\n"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_BENI
 msgid "Third party assets"
 msgstr "Beni di terzi"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__threshold
+msgid "Threshold"
+msgstr "Soglia"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__committed_amount
+msgid ""
+"Total amount of planned sales of services / goods under this Declaration of "
+"Intent (i.e. quotations and sales orders)"
+msgstr ""
+"Importo totale delle vendite pianificate di servizi/beni ai sensi della presente Dichiarazione di "
+"Intento (preventivi e ordini di vendita)"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__consumed_amount
+msgid ""
+"Total amount of sales of services / goods under this Declaration of Intent"
+msgstr "Importo totale delle vendite di servizi / beni ai sensi della presente Dichiarazione di Intento"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__threshold
+msgid ""
+"Total amount of services / goods you are allowed to sell without VAT under "
+"this Declaration of Intent"
+msgstr ""
+"Importo totale dei servizi / beni che è consentito vendere senza IVA in base a "
+"questa Dichiarazione di Intento"
 
 #. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_turnover_section_3
@@ -176,6 +727,18 @@ msgstr ""
 #: model:account.report.line,name:l10n_it.tax_report_line_turnover
 msgid "Turnover"
 msgstr ""
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__activity_exception_decoration
+msgid "Type of the exception activity on record."
+msgstr "Tipo di attività eccezione sul record."
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_account_bank_statement_line__l10n_it_use_declaration_of_intent
+#: model:ir.model.fields,field_description:l10n_it.field_account_move__l10n_it_use_declaration_of_intent
+#: model:ir.model.fields,field_description:l10n_it.field_account_payment__l10n_it_use_declaration_of_intent
+msgid "Use Declaration of Intent"
+msgstr "Utilizzare Dichiarazione di Intento"
 
 #. module: l10n_it
 #: model:account.report.line,name:l10n_it.tax_report_line_iva
@@ -633,6 +1196,11 @@ msgid "VP9 - Previous year credit"
 msgstr "VP9 - Credito anno precedente"
 
 #. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.view_l10n_it_declaration_of_intent_form
+msgid "Validate"
+msgstr "Validare"
+
+#. module: l10n_it
 #: model:account.account.tag,name:l10n_it.account_tag_D_PL
 msgid "Value adjustments of financial assets and liabilities"
 msgstr "Rettifiche di valore di attività e passività finanziarie"
@@ -641,6 +1209,31 @@ msgstr "Rettifiche di valore di attività e passività finanziarie"
 #: model:account.account.tag,name:l10n_it.account_tag_A_PL
 msgid "Value of production"
 msgstr "Valore della produzione"
+
+#. module: l10n_it
+#: model:ir.model.fields,field_description:l10n_it.field_l10n_it_declaration_of_intent__website_message_ids
+msgid "Website Messages"
+msgstr "Messaggi sito web"
+
+#. module: l10n_it
+#: model:ir.model.fields,help:l10n_it.field_l10n_it_declaration_of_intent__website_message_ids
+msgid "Website communication history"
+msgstr "Cronologia comunicazioni sito web"
+
+#. module: l10n_it
+#. odoo-python
+#: code:addons/l10n_it/models/declaration_of_intent.py:0
+msgid ""
+"You cannot delete the Declarations of Intent \"%s\". At least one of them is"
+" used on an Invoice already."
+msgstr ""
+"Non puoi eliminare le Dichiarazioni di Intento \"%s\". Almeno una lo è"
+"già utilizzato su una fattura."
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.report_invoice_document
+msgid "Your Declaration of Intent number"
+msgstr "Vostra Dichiarazione di Intento nr."
 
 #. module: l10n_it
 #: model:ir.model.fields.selection,name:l10n_it.selection__account_tax__l10n_it_exempt_reason__n1
@@ -775,3 +1368,8 @@ msgid ""
 "telecomunicazioni, tele-radiodiffusione ed elettronici ex art. 7-octies, "
 "comma 1 lett. a, b, art. 74-sexies DPR 633/72)"
 msgstr ""
+
+#. module: l10n_it
+#: model_terms:ir.ui.view,arch_db:l10n_it.report_invoice_document
+msgid "from"
+msgstr "del"
