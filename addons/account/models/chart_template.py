@@ -238,18 +238,19 @@ class AccountChartTemplate(models.AbstractModel):
             else:
                 journal = None
                 lang = self._get_untranslatable_fields_target_language(company.chart_template, company)
-                translated_code = self._get_field_translation(journal_data, 'code', lang)
-                if 'code' in journal_data:
+                code = self._get_field_translation(journal_data, 'code', lang)
+                if code:
                     journal = self.env['account.journal'].with_context(active_test=False).search([
-                        ('code', 'in', (journal_data['code'], translated_code)),
+                        ('type', '=', journal_data['type']),
+                        ('code', '=', code),
                         ('company_id', '=', company.id),
-                    ])
+                    ], limit=1)
                 # Try to match by journal name to avoid conflict in the unique constraint on the mail alias
                 translated_name = self._get_field_translation(journal_data, 'name', lang)
                 if not journal and 'name' in journal_data and 'type' in journal_data:
-                    journal = self.env['account.journal'].with_context(active_test=False).search([
+                    journal = self.env['account.journal'].with_context(active_test=False,lang=lang).search([
                         ('type', '=', journal_data['type']),
-                        ('name', 'in', (journal_data['name'], translated_name)),
+                        ('name', '=', translated_name),
                         ('company_id', '=', company.id),
                     ], limit=1)
                 if journal:
