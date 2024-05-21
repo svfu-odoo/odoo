@@ -73,10 +73,15 @@ class SaleOrder(models.Model):
                 continue
 
             declaration_invoiced = declaration.invoiced
-            not_yet_invoiced = order._l10n_it_edi_doi_get_declaration_amount_to_invoice(declaration)
+
             declaration_not_yet_invoiced = declaration.not_yet_invoiced
             if order.state != 'sale':
-                # Exactly the 'sale' invoices are included in declaration.not_yet_invoiced
+                # Exactly the lines from 'sale' invoices are included in declaration.not_yet_invoiced
+                declaration_lines = order.order_line.filtered(
+                    lambda line: line.l10n_it_edi_doi_declaration_of_intent_id == declaration
+                )
+                # TODO: can it be negative?
+                not_yet_invoiced = declaration_lines._l10n_it_edi_doi_get_amount_not_yet_invoiced()
                 declaration_not_yet_invoiced += not_yet_invoiced
 
             date = order.l10n_it_edi_doi_declaration_of_intent_date
@@ -132,7 +137,7 @@ class SaleOrder(models.Model):
         Raise a UserError in case the configuration of the sale order is invalid.
         """
         for company_id, records in self.grouped('company_id').items():
-            declaration_of_intent_tax = company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
+            declaration_of_intent_tax = company_id.l10n_it_edi_doi_declaration_of_intent_tax
             if not declaration_of_intent_tax:
                 continue
             declaration_tax_lines = records.order_line.filtered(
@@ -181,40 +186,3 @@ class SaleOrder(models.Model):
             'res_model': 'l10n_it_edi_doi.declaration_of_intent',
             'res_id': self.l10n_it_edi_doi_declaration_of_intent_id.id,
         }
-
-    def _l10n_it_edi_doi_get_declaration_amount_to_invoice(self, declaration, additional_invoiced={}):
-        """
-        Consider sales orders in self that use declaration of intent `declaration`.
-        For each sales order we compute the amount that is tax exempt due to the declaration of intent
-        (line has special declaration of intent tax applied) but not yet invoiced.
-        For the not yet invoiced amount only 'posted' invoices are considerer.
-        Return the sum of all these amounts.
-        :param declaration: We only consider sales orders using Declaration of Intent `declaration`
-        :param dict additional_invoiced: Dictionary (sale order id -> float)
-                                         The float represents additional invoiced amount for the sale orderr.
-                                         This can i.e. be used to simulate posting an already linked invoice.
-        """
-        if not declaration:
-            return 0
-
-        tax = declaration.company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
-        if not tax:
-            return 0
-
-        filtered_self = self.filtered(
-            lambda order: order.l10n_it_edi_doi_declaration_of_intent_id == declaration
-        )
-        amount_to_invoice = 0
-        for order in filtered_self:
-            committing_lines = order.order_line.filtered(
-                # The declaration tax cannot be used with other taxes on a single line
-                # (checked in `action_confirm`)
-                lambda line: line.tax_id.ids == tax.ids
-            )
-            total_amount_to_invoice = sum(committing_lines.mapped('price_total'))
-            posted_invoices = order.invoice_ids.filtered(
-                lambda invoice: invoice.state == 'posted'
-            )
-            amount_invoiced = posted_invoices.invoice_line_ids._l10n_it_edi_doi_get_declaration_amount(declaration)
-            amount_to_invoice += max(total_amount_to_invoice - amount_invoiced - additional_invoiced.get(order.id, 0), 0)
-        return amount_to_invoice

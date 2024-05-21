@@ -76,30 +76,26 @@ class AccountMove(models.Model):
 
             declaration_invoiced = declaration.invoiced
             declaration_not_yet_invoiced = declaration.not_yet_invoiced
-            if move.state != 'posted':  # exactly the 'posted' invoices are included in declaration.invoiced
+            if move.state != 'posted':  # exactly the 'posted' invoice lines are included in declaration.invoiced
                 # Here we replicate what would happen when posting the invoice
                 #   * `declaration.invoiced` will increase by the invoiced amount
                 #   * `declaration.not_yet_invoiced` will decrease by the now invoiced sale order amount (see computation below)
-                # Note: lines added to a credit note linked to sales order are not added to the sales order
-                invoiced = move.invoice_line_ids._l10n_it_edi_doi_get_declaration_amount(declaration)
-                declaration_invoiced += invoiced
-                linked_orders = move.line_ids.sale_line_ids.order_id.filtered(
-                    lambda o: o.l10n_it_edi_doi_declaration_of_intent_id == declaration
+                # Note: lines manually added to a invoice or credit note linked to sales order are not added to the sales order
+
+                declaration_lines = move.invoice_line_ids.filtered(
+                    lambda line: line.l10n_it_edi_doi_declaration_of_intent_id == declaration
                 )
-                for order in linked_orders:
-                    lines_from_order = move.line_ids.filtered(
-                        lambda line: line.sale_line_ids.order_id == order
-                    )
-                    # `amount_invoiced` is negative in case of a credit note ('out_refund')
-                    amount_invoiced = lines_from_order._l10n_it_edi_doi_get_declaration_amount(declaration)
-                    amount_to_invoice_before = order._l10n_it_edi_doi_get_declaration_amount_to_invoice(
-                        declaration,
-                    )
-                    amount_to_invoice = order._l10n_it_edi_doi_get_declaration_amount_to_invoice(
-                        declaration,
-                        additional_invoiced={order.id: amount_invoiced}
-                    )
-                    declaration_not_yet_invoiced -= amount_to_invoice_before - amount_to_invoice
+                declaration_invoiced += declaration_lines._l10n_it_edi_doi_sum_signed_amount()
+
+                relevant_sale_lines = declaration_lines.sale_line_ids.filtered(
+                    lambda line: line.l10n_it_edi_doi_declaration_of_intent_id == declaration
+                                 and line.order_id.state == 'sale'
+                )
+                not_yet_invoiced_now = relevant_sale_lines._l10n_it_edi_doi_get_amount_not_yet_invoiced()
+                not_yet_invoiced_after_posting = relevant_sale_lines._l10n_it_edi_doi_get_amount_not_yet_invoiced(
+                    unposted_invoice_lines=declaration_lines
+                )
+                declaration_not_yet_invoiced -= not_yet_invoiced_now - not_yet_invoiced_after_posting
 
             validity_warnings = move._l10n_it_edi_doi_get_declaration_of_intent_validity_warnings()
 
@@ -136,7 +132,10 @@ class AccountMove(models.Model):
             return []
         partner = self.commercial_partner_id
         date = self.l10n_it_edi_doi_declaration_of_intent_date
-        invoiced_amount = self.invoice_line_ids._l10n_it_edi_doi_get_declaration_amount(declaration)
+        declaration_lines = self.invoice_line_ids.filtered(
+            lambda line: line.l10n_it_edi_doi_declaration_of_intent_id
+        )
+        invoiced_amount = declaration_lines._l10n_it_edi_doi_sum_signed_amount()
         return declaration._get_validity_warnings(
             self.company_id, partner, self.currency_id, date,
             invoiced_amount=invoiced_amount, only_blocking=only_blocking
@@ -157,7 +156,7 @@ class AccountMove(models.Model):
     def _post(self, soft=True):
         errors = []
         for company_id, records in self.grouped('company_id').items():
-            declaration_of_intent_tax = company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
+            declaration_of_intent_tax = company_id.l10n_it_edi_doi_declaration_of_intent_tax
             if not declaration_of_intent_tax:
                 continue
             for move in records:

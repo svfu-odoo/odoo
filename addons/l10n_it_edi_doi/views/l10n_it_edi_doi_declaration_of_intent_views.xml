@@ -79,11 +79,11 @@
                         </group>
                     </group>
                     <notebook>
-                        <page id="invoice_tab" string="Invoices &amp; Refunds" name="invoice_tab">
-                            <field name="invoice_ids" readonly="True"/>
+                        <page id="invoice_tab" string="Invoice Lines" name="invoice_tab">
+                            <field name="invoice_line_ids" readonly="True"/>
                         </page>
-                        <page id="sale_order_tab" string="Sales Orders &amp; Quotations" name="sale_order_tab">
-                            <field name="sale_order_ids" readonly="True"/>
+                        <page id="sale_order_tab" string="Sales Order Lines" name="sale_order_tab">
+                            <field name="sale_order_line_ids" readonly="True"/>
                         </page>
                     </notebook>
                 </sheet>

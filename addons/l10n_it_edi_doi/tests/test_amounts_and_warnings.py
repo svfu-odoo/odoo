@@ -17,7 +17,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
         We create a single invoice and post it.
         """
         declaration = self.declaration_1000
-        declaration_tax = declaration.company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
+        declaration_tax = declaration.company_id.l10n_it_edi_doi_declaration_of_intent_tax
 
         self.assertEqual(declaration.invoiced, 0.0)
         self.assertEqual(declaration.not_yet_invoiced, 0.0)
@@ -80,7 +80,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
             I.e. the invoice should not influence the Not Yet Invoiced amount of the declaration.
         """
         declaration = self.declaration_1000
-        declaration_tax = declaration.company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
+        declaration_tax = declaration.company_id.l10n_it_edi_doi_declaration_of_intent_tax
 
         order = self.env['sale.order'].create({
             'company_id': self.company.id,
@@ -180,7 +180,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
         """
 
         declaration = self.declaration_1000
-        declaration_tax = declaration.company_id._l10n_it_edi_doi_get_declaration_of_intent_tax()
+        declaration_tax = declaration.company_id.l10n_it_edi_doi_declaration_of_intent_tax
 
         # Add an order that is not used in the rest of this test.
         # This way we can always show the warning and that this amount will not be removed from Not Yet Invoiced.

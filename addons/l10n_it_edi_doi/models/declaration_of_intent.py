@@ -111,18 +111,18 @@ class L10nItDeclarationOfIntent(models.Model):
         copy=False,
     )
 
-    invoice_ids = fields.One2many(
-        'account.move',
+    invoice_line_ids = fields.One2many(
+        'account.move.line',
         'l10n_it_edi_doi_declaration_of_intent_id',
-        string="Invoices / Refunds",
+        string="Invoice Lines",
         copy=False,
         readonly=True,
     )
 
-    sale_order_ids = fields.One2many(
-        'sale.order',
+    sale_order_line_ids = fields.One2many(
+        'sale.order.line',
         'l10n_it_edi_doi_declaration_of_intent_id',
-        string="Sales Orders / Quotations",
+        string="Sales Order Lines",
         copy=False,
         readonly=True,
     )
@@ -141,34 +141,17 @@ class L10nItDeclarationOfIntent(models.Model):
         for record in self:
             record.display_name = f"{record.protocol_number_part1}-{record.protocol_number_part2}"
 
-    @api.depends('invoice_ids', 'invoice_ids.move_type', 'invoice_ids.state', 'invoice_ids.tax_totals')
+    @api.depends('invoice_line_ids', 'invoice_line_ids.move_id.state')
     def _compute_invoiced(self):
-        treated = self.env[self._name]
         for declaration in self:
-            relevant_invoices = self.invoice_ids.filtered(
-                lambda invoice: (invoice.state == 'posted'
-                                 and invoice.move_type in self.env['account.move'].get_invoice_types())
-            )
-            declaration.invoiced = relevant_invoices.invoice_line_ids._l10n_it_edi_doi_get_declaration_amount(declaration)
-            treated |= declaration
-        (self - treated).invoiced = False
+            posted_lines = self.invoice_line_ids.filtered(lambda line: line.move_id.state == 'posted')
+            declaration.invoiced = posted_lines._l10n_it_edi_doi_sum_signed_amount()
 
-    @api.depends('sale_order_ids',
-                 'sale_order_ids.state',
-                 'sale_order_ids.tax_totals',
-                 'sale_order_ids.invoice_ids',
-                 'sale_order_ids.invoice_ids.move_type',
-                 'sale_order_ids.invoice_ids.state',
-                 'sale_order_ids.invoice_ids.tax_totals')
+    @api.depends('sale_order_line_ids', 'sale_order_line_ids.order_id.state')
     def _compute_not_yet_invoiced(self):
-        treated = self.env[self._name]
         for declaration in self:
-            relevant_orders = self.sale_order_ids.filtered(
-                lambda order: order.state == 'sale'
-            )
-            declaration.not_yet_invoiced = relevant_orders._l10n_it_edi_doi_get_declaration_amount_to_invoice(declaration)
-            treated |= declaration
-        (self - treated).not_yet_invoiced = False
+            relevant_lines = self.sale_order_line_ids.filtered(lambda line: line.order_id.state == 'sale')
+            declaration.not_yet_invoiced = relevant_lines._l10n_it_edi_doi_get_amount_not_yet_invoiced()
 
     @api.depends('threshold', 'not_yet_invoiced', 'invoiced')
     def _compute_remaining(self):
