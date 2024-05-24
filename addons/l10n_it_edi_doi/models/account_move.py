@@ -87,7 +87,9 @@ class AccountMove(models.Model):
                 )
                 declaration_invoiced += declaration_lines._l10n_it_edi_doi_sum_signed_amount()
 
-                relevant_sale_lines = declaration_lines.sale_line_ids.filtered(
+                # TODO: NOTE: `declaration_lines.sale_line_ids` is not necessarily a "real" line
+                #             (i.e. in case the current line is a downpayment)
+                relevant_sale_lines = declaration_lines.sale_line_ids.order_id.order_line.filtered(
                     lambda line: line.l10n_it_edi_doi_declaration_of_intent_id == declaration
                                  and line.order_id.state == 'sale'
                 )
