@@ -374,10 +374,11 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
         )
 
         invoice.invoice_line_ids[0].price_unit = 2000  # 1000 more than the sales order declaration amount
+        # Changing an invoice line does not affect the not yet invoiced amount of sale order lines not linked to that line
         self.assertEqual(
             invoice.l10n_it_edi_doi_warning,
-            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 3,000.00\xa0€, this document included.\n"
-            "Invoiced: 2,000.00\xa0€; Not Yet Invoiced: 2,000.00\xa0€"
+            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 3,500.00\xa0€, this document included.\n"
+            "Invoiced: 2,000.00\xa0€; Not Yet Invoiced: 2,500.00\xa0€"
         )
         invoice.action_post()
         self.assertRecordValues(declaration, [{
@@ -427,11 +428,16 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
     def test_consolidated_billing(self):
         """
         Ensure the amounts and warnings are computed correctly in the following flow:
-          * We create multiple quotations with 1 line each and confirm them all to sales order.
-          * We create a single invoice for the SOs from the previous step.
-            There is one line per SO.
-          * We change the amount on the one of the lines of the invoice.
-        I.e. we check that the modified line only impacts the 1 SO
+          1. We create multiple quotations with 1 line each with qty 2 and confirm them all to sales order.
+          2. We create a single invoice for the SOs from the previous step.
+             There is one line per SO.
+          3. We change the amount on the one of the lines of the invoice without changing the qty.
+          4. We increase the qty on one line.
+          5. We decrease the qty on another line (not from step 4)
+        I.e. we check that:
+          * The not yet invoiced amount on the SO linked to the line from step (3) is still 0.
+          * The lines from step (4) and (5) do not affect each other
+          * Increasing the qty on line (5) to be higher than the SO amount does not lead to a negative amount on the linked SO.
         """
 
         declaration = self.declaration_1000
@@ -447,6 +453,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
                 Command.create({
                     'name': 'declaration line',
                     'product_id': self.product_1.id,
+                    'product_uom_qty': 2,
                     'price_unit': 2000.0,  # > declaration.threshold
                     'tax_id': [Command.set(declaration_tax.ids)],
                 }),
@@ -455,37 +462,69 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
         orders.action_confirm()
         self.assertRecordValues(declaration, [{
             'invoiced': 0.0,
-            'not_yet_invoiced': 6000.0,
-            'remaining': -5000.0,
+            'not_yet_invoiced': 12000.0,
+            'remaining': -11000.0,
         }])
 
         invoice = orders._create_invoices()
         self.assertRecordValues(declaration, [{
             'invoiced': 0.0,
-            'not_yet_invoiced': 6000.0,
-            'remaining': -5000.0,
+            'not_yet_invoiced': 12000.0,
+            'remaining': -11000.0,
         }])
         self.assertEqual(
             invoice.l10n_it_edi_doi_warning,
-            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 5,000.00\xa0€, this document included.\n"
-            "Invoiced: 6,000.00\xa0€; Not Yet Invoiced: 0.00\xa0€"
+            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 11,000.00\xa0€, this document included.\n"
+            "Invoiced: 12,000.00\xa0€; Not Yet Invoiced: 0.00\xa0€"
         )
 
         invoice.invoice_line_ids[0].price_unit = 1000
+        # in the warning:
+        #   * invoiced amount decreases by 2000 (since we reduced the price_unit by 1000)
+        #   * not yet invoiced amount stays the same (all quantities still invoiced)
         self.assertEqual(
             invoice.l10n_it_edi_doi_warning,
-            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 5,000.00\xa0€, this document included.\n"
-            "Invoiced: 5,000.00\xa0€; Not Yet Invoiced: 1,000.00\xa0€"
+            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 9,000.00\xa0€, this document included.\n"
+            "Invoiced: 10,000.00\xa0€; Not Yet Invoiced: 0.00\xa0€"
         )
         self.assertRecordValues(declaration, [{
             'invoiced': 0.0,
-            'not_yet_invoiced': 6000.0,
-            'remaining': -5000.0,
+            'not_yet_invoiced': 12000.0,
+            'remaining': -11000.0,
+        }])
+
+        invoice.invoice_line_ids[1].quantity = 1
+        # in the warning: 1 qty (2000 €) moves from invoiced to net yet invoiced
+        self.assertEqual(
+            invoice.l10n_it_edi_doi_warning,
+            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 9,000.00\xa0€, this document included.\n"
+            "Invoiced: 8,000.00\xa0€; Not Yet Invoiced: 2,000.00\xa0€"
+        )
+        self.assertRecordValues(declaration, [{
+            'invoiced': 0.0,
+            'not_yet_invoiced': 12000.0,
+            'remaining': -11000.0,
+        }])
+
+        invoice.invoice_line_ids[2].quantity = 3
+        # in the warning:
+        #   * invoiced amount increases by 2000 (since we increase the quantity by 1)
+        #   * not yet invoiced amount stays the same (all quantities still invoiced)
+        self.assertEqual(
+            invoice.l10n_it_edi_doi_warning,
+            "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 11,000.00\xa0€, this document included.\n"
+            "Invoiced: 10,000.00\xa0€; Not Yet Invoiced: 2,000.00\xa0€"
+        )
+        self.assertRecordValues(declaration, [{
+            'invoiced': 0.0,
+            'not_yet_invoiced': 12000.0,
+            'remaining': -11000.0,
         }])
 
         invoice.action_post()
+        # Same values as in the last warning
         self.assertRecordValues(declaration, [{
-            'invoiced': 5000.0,
-            'not_yet_invoiced': 1000.0,
-            'remaining': -5000.0,
+            'invoiced': 10000.0,
+            'not_yet_invoiced': 2000.0,
+            'remaining': -11000.0,
         }])

@@ -198,17 +198,18 @@ class SaleOrder(models.Model):
             'res_id': self.l10n_it_edi_doi_declaration_of_intent_id.id,
         }
 
-    def _l10n_it_edi_doi_get_amount_not_yet_invoiced(self, declaration, additional_invoiced={}):
+    def _l10n_it_edi_doi_get_amount_not_yet_invoiced(self, declaration, additional_invoiced_qty={}):
         """
         Consider sales orders in self that use declaration of intent `declaration`.
         For each sales order we compute the amount that is tax exempt due to the declaration of intent
         (line has special declaration of intent tax applied) but not yet invoiced.
-        To compute this amount only 'posted' are considered (also see parameter `additional_invoiced`).
-        Return the sum of all these amounts.
-        :param declaration:         We only consider sales orders using Declaration of Intent `declaration`.
-        :param additional_invoiced: Dictionary (sale order id -> float)
-                                    The float represents additional invoiced amount for the sale orderr.
-                                    This can i.e. be used to simulate posting an already linked invoice.
+        For each line of the SO we i.e. use the not yet invoiced quantity to compute this amount.
+        The aforementioned quantity is computed from field `qty_invoiced_posted` and parameter `additional_invoiced_qty`
+        Return the sum of all these amounts on the SOs.
+        :param declaration:             We only consider sales orders using Declaration of Intent `declaration`.
+        :param additional_invoiced_qty: Dictionary (sale order line id -> float)
+                                        The float represents additional invoiced amount qty for the sale order.
+                                        This can i.e. be used to simulate posting an already linked invoice.
         """
         if not declaration:
             return 0
@@ -223,21 +224,18 @@ class SaleOrder(models.Model):
             if not declaration:
                 continue
 
-            committing_lines = order.order_line.filtered(
+            order_lines = order.order_line.filtered(
                 # The declaration tax cannot be used with other taxes on a single line
                 # (checked in `action_confirm`)
                 lambda line: line.tax_id.ids == tax.ids
             )
-            total_amount_to_invoice = sum(committing_lines.mapped('price_total'))
+            order_not_yet_invoiced = 0
+            for line in order_lines:
+                price_reduce = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
+                qty_invoiced = line.qty_invoiced_posted + additional_invoiced_qty.get(line.id, 0)
+                qty_to_invoice = line.product_uom_qty - qty_invoiced
+                order_not_yet_invoiced += price_reduce * qty_to_invoice
+            if order_not_yet_invoiced > 0:
+                not_yet_invoiced += order_not_yet_invoiced
 
-            invoices = order.invoice_ids.filtered(
-                lambda invoice: invoice.l10n_it_edi_doi_declaration_of_intent_id == declaration
-                                and invoice.state == 'posted'
-            )
-            invoice_lines = invoices.invoice_line_ids.filtered(
-                lambda line: order in line.sale_line_ids.order_id
-            )
-            amount_invoiced = invoice_lines._l10n_it_edi_doi_get_declaration_amount(declaration)
-
-            not_yet_invoiced += max(total_amount_to_invoice - amount_invoiced - additional_invoiced.get(order.id, 0), 0)
         return not_yet_invoiced
