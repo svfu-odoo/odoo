@@ -130,7 +130,8 @@ class AccountMove(models.Model):
                             qty_invoiced += invoice_line.product_uom_id._compute_quantity(invoice_line.quantity, sale_line.product_uom)
                         elif invoice_line.move_id.move_type == 'out_refund':
                             qty_invoiced -= invoice_line.product_uom_id._compute_quantity(invoice_line.quantity, sale_line.product_uom)
-                        additional_invoiced_qty[sale_line.id] = additional_invoiced_qty.get(sale_line.id, 0) + qty_invoiced
+                        sale_line_id = sale_line.ids[0]  # do not just use `id` in case of NewId
+                        additional_invoiced_qty[sale_line_id] = additional_invoiced_qty.get(sale_line_id, 0) + qty_invoiced
                 for order in linked_orders:
                     not_yet_invoiced_before = order._l10n_it_edi_doi_get_amount_not_yet_invoiced(
                         declaration,

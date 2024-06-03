@@ -231,7 +231,9 @@ class SaleOrder(models.Model):
             order_not_yet_invoiced = 0
             for line in order_lines:
                 price_reduce = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
-                qty_invoiced = line.qty_invoiced_posted + additional_invoiced_qty.get(line.id, 0)
+                qty_invoiced = line.qty_invoiced_posted
+                if line.ids:
+                    qty_invoiced += additional_invoiced_qty.get(line.ids[0], 0)
                 qty_to_invoice = line.product_uom_qty - qty_invoiced
                 order_not_yet_invoiced += price_reduce * qty_to_invoice
             if order_not_yet_invoiced > 0:

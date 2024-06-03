@@ -7,7 +7,7 @@ class SaleOrderLine(models.Model):
     _inherit = "sale.order.line"
 
     qty_invoiced_posted = fields.Float(
-        string="Invoiced Quantity (Posted)",
+        string="Invoiced Quantity (posted)",
         compute='_compute_qty_invoiced_posted',
         digits='Product Unit of Measure',
         store=True)

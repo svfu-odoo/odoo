@@ -33,17 +33,24 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
             'invoice_line_ids': [
                 Command.create({
                     'name': 'declaration line',
-                    'quantity': 1,
+                    'quantity': 2,
                     'price_unit': 1000.0,  # == declaration.threshold
                     'tax_ids': [Command.set(declaration_tax.ids)],
                 }),
             ],
         })
-        self.assertEqual(invoice.l10n_it_edi_doi_warning, "")
 
         invoice_form = Form(invoice)
         with invoice_form.invoice_line_ids.edit(0) as line_form:
             line_form.price_unit = 2000
+            line_form.save()
+            self.assertEqual(
+                invoice_form.l10n_it_edi_doi_warning,
+                "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 3,000.00\xa0€, this document included.\n"
+                "Invoiced: 4,000.00\xa0€; Not Yet Invoiced: 0.00\xa0€"
+            )
+        with invoice_form.invoice_line_ids.edit(0) as line_form:
+            line_form.quantity = 1
             line_form.save()
             self.assertEqual(
                 invoice_form.l10n_it_edi_doi_warning,
@@ -75,14 +82,23 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
                     'name': 'declaration line',
                     'product_id': self.product_1.id,
                     'price_unit': 1000.0,  # == declaration.threshold
+                    'product_uom_qty': 2,
                     'tax_id': [Command.set(declaration_tax.ids)],
                 }),
             ]
         })
-        self.assertEqual(order.l10n_it_edi_doi_warning, "")
 
         order_form = Form(order)
         with order_form.order_line.edit(0) as line_form:
+            line_form.price_unit = 2000
+            line_form.save()
+            self.assertEqual(
+                order_form.l10n_it_edi_doi_warning,
+                "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 3,000.00\xa0€, this document included.\n"
+                "Invoiced: 0.00\xa0€; Not Yet Invoiced: 4,000.00\xa0€"
+            )
+        with order_form.order_line.edit(0) as line_form:
+            line_form.product_uom_qty = 1
             line_form.price_unit = 2000
             line_form.save()
             self.assertEqual(
@@ -106,6 +122,15 @@ class TestItEdiDoiRemaining(TestItEdiDoi, ProductCommon):
                 order_form.l10n_it_edi_doi_warning,
                 "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 2,000.00\xa0€, this document included.\n"
                 "Invoiced: 0.00\xa0€; Not Yet Invoiced: 3,000.00\xa0€"
+            )
+        with order_form.order_line.edit(0) as line_form:
+            line_form.product_uom_qty = 2
+            line_form.price_unit = 3000
+            line_form.save()
+            self.assertEqual(
+                order_form.l10n_it_edi_doi_warning,
+                "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 5,000.00\xa0€, this document included.\n"
+                "Invoiced: 0.00\xa0€; Not Yet Invoiced: 6,000.00\xa0€"
             )
 
     def test_invoice(self):
