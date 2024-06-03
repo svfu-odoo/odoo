@@ -65,6 +65,11 @@ msgid "Account Chart Template"
 msgstr "Modello piano dei conti"
 
 #. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
+msgid "Accounting Date"
+msgstr "Data contabile"
+
+#. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__message_needaction
 msgid "Action Needed"
 msgstr "Azione richiesta"
@@ -97,7 +102,6 @@ msgstr "Icona tipo di attività"
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_l10n_it_edi_doi_declaration_of_intent_tree
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 msgid "Add a Declaration of Intent"
 msgstr "Aggiungi Dichiarazione di Intento"
 
@@ -178,7 +182,6 @@ msgstr "Data di emissione della Dichiarazione di Intento"
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_account_payment__l10n_it_edi_doi_declaration_of_intent_id
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_sale_order__l10n_it_edi_doi_declaration_of_intent_id
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_account_invoice_filter
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_sales_order_filter
 msgid "Declaration of Intent"
 msgstr "Dichiarazione di Intento"
@@ -243,16 +246,6 @@ msgstr "Bozza"
 #: model:product.pricelist,name:l10n_it_edi_doi.list_europe
 msgid "EUR pricelist"
 msgstr "EUR listino prezzi"
-
-#. module: l10n_it_edi_doi
-#: model:ir.model.fields,help:l10n_it_edi_doi.field_res_partner__l10n_it_edi_doi_is_regular_exporter
-#: model:ir.model.fields,help:l10n_it_edi_doi.field_res_users__l10n_it_edi_doi_is_regular_exporter
-msgid ""
-"Enable this checkbox to specify a Declaration of Intent on this partner "
-"which is then considered a Regular Exporter"
-msgstr ""
-"Attivare questa casella di controllo per specificare una Dichiarazione di Intento su questo partner "
-"che viene quindi considerato un Esportatore Regolare"
 
 #. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__end_date
@@ -345,6 +338,11 @@ msgid "Invoiced"
 msgstr "Fatturato"
 
 #. module: l10n_it_edi_doi
+#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_sale_order_line__qty_invoiced_posted
+msgid "Invoiced Quantity (posted)"
+msgstr "Quantità fatturata (confermata)"
+
+#. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
 msgid "Invoices"
 msgstr "Fatture"
@@ -367,20 +365,9 @@ msgid "Is Follower"
 msgstr "Sta seguendo"
 
 #. module: l10n_it_edi_doi
-#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_res_partner__l10n_it_edi_doi_is_regular_exporter
-#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_res_users__l10n_it_edi_doi_is_regular_exporter
-msgid "Is Regular Exporter"
-msgstr "È Esportatore Regolare"
-
-#. module: l10n_it_edi_doi
 #: model:ir.model,name:l10n_it_edi_doi.model_account_move
 msgid "Journal Entry"
 msgstr "Registrazione contabile"
-
-#. module: l10n_it_edi_doi
-#: model:ir.model,name:l10n_it_edi_doi.model_account_move_line
-msgid "Journal Item"
-msgstr "Movimento contabile"
 
 #. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__write_uid
@@ -439,6 +426,11 @@ msgstr "Non Ancora Fatturato"
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
+msgid "Not Yet Invoiced Amount"
+msgstr "Importo Non Ancora Fatturato"
+
+#. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
 msgid "Number"
 msgstr "Numero"
 
@@ -466,13 +458,6 @@ msgstr "Numero di messaggi con errore di consegna"
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__partner_id
 msgid "Partner"
 msgstr "Partner"
-
-#. module: l10n_it_edi_doi
-#. odoo-python
-#: code:addons/l10n_it_edi_doi/models/res_partner.py:0
-#, python-format
-msgid "Partners with active Declarations of Intent are regular exporters."
-msgstr "I partner con dichiarazioni di intento attive sono esportatori regolari."
 
 #. module: l10n_it_edi_doi
 #. odoo-python
@@ -550,6 +535,11 @@ msgid "Sales Order"
 msgstr "Ordini di vendita"
 
 #. module: l10n_it_edi_doi
+#: model:ir.model,name:l10n_it_edi_doi.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "Riga ordine di vendita"
+
+#. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
 msgid "Sales Orders"
 msgstr "Ordini di vendita"
@@ -608,6 +598,11 @@ msgstr ""
 #: model:ir.model,name:l10n_it_edi_doi.model_account_tax
 msgid "Tax"
 msgstr "Imposta"
+
+#. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
+msgid "Tax excluded"
+msgstr "Imposta esclusa"
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_l10n_it_edi_doi_declaration_of_intent_form
@@ -706,12 +701,6 @@ msgid "Total"
 msgstr "Totale"
 
 #. module: l10n_it_edi_doi
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
-msgid "Total Tax Included"
-msgstr "Totale imposte incluse"
-
-
-#. module: l10n_it_edi_doi
 #: model:ir.model.fields,help:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__not_yet_invoiced
 msgid ""
 "Total amount of planned sales of services / goods under this Declaration of "
@@ -771,14 +760,8 @@ msgstr "Utilizzare Dichiarazione di Intento"
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_l10n_it_edi_doi_declaration_of_intent_form
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 msgid "Validate"
 msgstr "Validare"
-
-#. module: l10n_it_edi_doi
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
-msgid "View"
-msgstr "Vista"
 
 #. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__website_message_ids

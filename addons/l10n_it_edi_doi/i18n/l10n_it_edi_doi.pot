@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 17.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-31 14:31+0000\n"
-"PO-Revision-Date: 2024-05-31 14:31+0000\n"
+"POT-Creation-Date: 2024-06-03 15:02+0000\n"
+"PO-Revision-Date: 2024-06-03 15:02+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -65,6 +65,11 @@ msgid "Account Chart Template"
 msgstr ""
 
 #. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
+msgid "Accounting Date"
+msgstr ""
+
+#. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__message_needaction
 msgid "Action Needed"
 msgstr ""
@@ -97,7 +102,6 @@ msgstr ""
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_l10n_it_edi_doi_declaration_of_intent_tree
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 msgid "Add a Declaration of Intent"
 msgstr ""
 
@@ -180,7 +184,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_account_payment__l10n_it_edi_doi_declaration_of_intent_id
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_sale_order__l10n_it_edi_doi_declaration_of_intent_id
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_account_invoice_filter
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_sales_order_filter
 #, python-format
 msgid "Declaration of Intent"
@@ -245,14 +248,6 @@ msgstr ""
 #. module: l10n_it_edi_doi
 #: model:product.pricelist,name:l10n_it_edi_doi.list_europe
 msgid "EUR pricelist"
-msgstr ""
-
-#. module: l10n_it_edi_doi
-#: model:ir.model.fields,help:l10n_it_edi_doi.field_res_partner__l10n_it_edi_doi_is_regular_exporter
-#: model:ir.model.fields,help:l10n_it_edi_doi.field_res_users__l10n_it_edi_doi_is_regular_exporter
-msgid ""
-"Enable this checkbox to specify a Declaration of Intent on this partner "
-"which is then considered a Regular Exporter"
 msgstr ""
 
 #. module: l10n_it_edi_doi
@@ -344,6 +339,11 @@ msgid "Invoiced"
 msgstr ""
 
 #. module: l10n_it_edi_doi
+#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_sale_order_line__qty_invoiced_posted
+msgid "Invoiced Quantity (posted)"
+msgstr ""
+
+#. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
 msgid "Invoices"
 msgstr ""
@@ -366,19 +366,8 @@ msgid "Is Follower"
 msgstr ""
 
 #. module: l10n_it_edi_doi
-#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_res_partner__l10n_it_edi_doi_is_regular_exporter
-#: model:ir.model.fields,field_description:l10n_it_edi_doi.field_res_users__l10n_it_edi_doi_is_regular_exporter
-msgid "Is Regular Exporter"
-msgstr ""
-
-#. module: l10n_it_edi_doi
 #: model:ir.model,name:l10n_it_edi_doi.model_account_move
 msgid "Journal Entry"
-msgstr ""
-
-#. module: l10n_it_edi_doi
-#: model:ir.model,name:l10n_it_edi_doi.model_account_move_line
-msgid "Journal Item"
 msgstr ""
 
 #. module: l10n_it_edi_doi
@@ -438,6 +427,11 @@ msgstr ""
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
+msgid "Not Yet Invoiced Amount"
+msgstr ""
+
+#. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
 msgid "Number"
 msgstr ""
 
@@ -464,13 +458,6 @@ msgstr ""
 #. module: l10n_it_edi_doi
 #: model:ir.model.fields,field_description:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__partner_id
 msgid "Partner"
-msgstr ""
-
-#. module: l10n_it_edi_doi
-#. odoo-python
-#: code:addons/l10n_it_edi_doi/models/res_partner.py:0
-#, python-format
-msgid "Partners with active Declarations of Intent are regular exporters."
 msgstr ""
 
 #. module: l10n_it_edi_doi
@@ -545,6 +532,11 @@ msgid "Sales Order"
 msgstr ""
 
 #. module: l10n_it_edi_doi
+#: model:ir.model,name:l10n_it_edi_doi.model_sale_order_line
+msgid "Sales Order Line"
+msgstr ""
+
+#. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
 msgid "Sales Orders"
 msgstr ""
@@ -598,6 +590,11 @@ msgstr ""
 #. module: l10n_it_edi_doi
 #: model:ir.model,name:l10n_it_edi_doi.model_account_tax
 msgid "Tax"
+msgstr ""
+
+#. module: l10n_it_edi_doi
+#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_move_tree
+msgid "Tax excluded"
 msgstr ""
 
 #. module: l10n_it_edi_doi
@@ -691,11 +688,6 @@ msgid "Total"
 msgstr ""
 
 #. module: l10n_it_edi_doi
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_quotation_tree
-msgid "Total Tax Included"
-msgstr ""
-
-#. module: l10n_it_edi_doi
 #: model:ir.model.fields,help:l10n_it_edi_doi.field_l10n_it_edi_doi_declaration_of_intent__not_yet_invoiced
 msgid ""
 "Total amount of planned sales of services / goods under this Declaration of "
@@ -746,13 +738,7 @@ msgstr ""
 
 #. module: l10n_it_edi_doi
 #: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_l10n_it_edi_doi_declaration_of_intent_form
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
 msgid "Validate"
-msgstr ""
-
-#. module: l10n_it_edi_doi
-#: model_terms:ir.ui.view,arch_db:l10n_it_edi_doi.view_partner_l10n_form
-msgid "View"
 msgstr ""
 
 #. module: l10n_it_edi_doi
