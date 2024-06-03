@@ -42,12 +42,11 @@ class SaleOrder(models.Model):
             order.l10n_it_edi_doi_declaration_of_intent_date = order.commitment_date or fields.Date.context_today(self)
 
     @api.depends('l10n_it_edi_doi_declaration_of_intent_id',
-                 'country_code',
-                 'partner_id.commercial_partner_id.l10n_it_edi_doi_is_regular_exporter')
+                 'country_code')
     def _compute_l10n_it_edi_doi_use_declaration_of_intent(self):
         for order in self:
             order.l10n_it_edi_doi_use_declaration_of_intent = order.l10n_it_edi_doi_declaration_of_intent_id \
-                or ("IT" in order.country_code and order.partner_id.commercial_partner_id.l10n_it_edi_doi_is_regular_exporter)
+                or "IT" in order.country_code
 
     @api.depends('company_id', 'partner_id.commercial_partner_id', 'l10n_it_edi_doi_declaration_of_intent_date', 'currency_id')
     def _compute_l10n_it_edi_doi_declaration_of_intent_id(self):

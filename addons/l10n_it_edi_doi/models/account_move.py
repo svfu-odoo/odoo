@@ -43,13 +43,11 @@ class AccountMove(models.Model):
 
     @api.depends('l10n_it_edi_doi_declaration_of_intent_id',
                  'country_code',
-                 'commercial_partner_id.l10n_it_edi_doi_is_regular_exporter',
                  'move_type')
     def _compute_l10n_it_edi_doi_use_declaration_of_intent(self):
         for move in self:
             move.l10n_it_edi_doi_use_declaration_of_intent = move.l10n_it_edi_doi_declaration_of_intent_id \
                 or ("IT" in move.country_code
-                    and move.commercial_partner_id.l10n_it_edi_doi_is_regular_exporter
                     and move.move_type in self.env['account.move'].get_invoice_types())
 
     @api.depends('company_id', 'partner_id', 'l10n_it_edi_doi_declaration_of_intent_date', 'currency_id')

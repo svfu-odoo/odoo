@@ -25,53 +25,12 @@
                        class="oe_stat_button"
                        name="l10n_it_edi_doi_action_open_declarations"
                        icon="fa-list"
-                       invisible="'IT' not in fiscal_country_codes or not l10n_it_edi_doi_is_regular_exporter">
+                       invisible="'IT' not in fiscal_country_codes">
                    <div class="o_field_widget o_stat_info">
                        <span class="o_stat_text">Declarations of Intent</span>
                    </div>
                </button>
            </div>
-            <page name="accounting" position="inside">
-                <group string="Declaration of Intent"
-                       name="l10n_it_edi_doi_group"
-                       invisible="'IT' not in fiscal_country_codes">
-
-                    <field name="l10n_it_edi_doi_is_regular_exporter"/>
-
-                    <field name="l10n_it_edi_doi_declaration_of_intent_ids"
-                           nolabel="1"
-                           colspan="2"
-                           widget="one2many"
-                           domain="[('company_id', '=', current_company_id)]"
-                           invisible="not l10n_it_edi_doi_is_regular_exporter">
-                        <tree editable="bottom"
-                              decoration-info="state == 'draft'"
-                              decoration-muted="state == 'terminated'"
-                              decoration-danger="state == 'revoked'">
-                            <control>
-                                <create name="add_line_control" string="Add a Declaration of Intent"/>
-                            </control>
-                            <field name="protocol_number_part1" readonly="state != 'draft'"/>
-                            <field name="protocol_number_part2" readonly="state != 'draft'"/>
-                            <field name="issue_date" readonly="state != 'draft'"/>
-                            <field name="start_date" readonly="state != 'draft'"/>
-                            <field name="end_date" readonly="state != 'draft'"/>
-                            <field name="threshold" readonly="state != 'draft'"/>
-                            <field name="currency_id" readonly="state != 'draft'" optional="hidden"/>
-                            <field name="not_yet_invoiced" optional="hidden"/>
-                            <field name="invoiced" optional="hidden"/>
-                            <field name="remaining"/>
-                            <field name="state" readonly="True"/>
-                            <button string="Validate" class="float-end btn-primary"
-                                    invisible="state != 'draft'"
-                                    type="object" name="action_validate"/>
-                            <button string="View" class="float-end btn btn-link"
-                                    type="object" name="action_open_self"/>
-                        </tree>
-                    </field>
-
-                </group>
-            </page>
         </field>
     </record>
 
