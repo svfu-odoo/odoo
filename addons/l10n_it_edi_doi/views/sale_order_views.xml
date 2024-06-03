@@ -29,16 +29,12 @@
                 <field name="date_order" widget="date"/>
                 <field name="partner_id"/>
                 <field name="currency_id" column_invisible="True"/>
-                <field name="amount_total"
-                       sum="Total Tax Included"
-                       widget="monetary"/>
                 <field name="state"
                        decoration-success="state == 'sale'"
                        decoration-info="state == 'draft'"
                        decoration-primary="state == 'sent'"
-                       widget="badge"
-                       optional="hide"/>
-                <field name="l10n_it_edi_doi_not_yet_invoiced" decoration-bf="1" sum="Total"/>
+                       widget="badge"/>
+                <field name="l10n_it_edi_doi_not_yet_invoiced" decoration-bf="1" sum="Total" string="Not Yet Invoiced Amount"/>
             </tree>
         </field>
     </record>
