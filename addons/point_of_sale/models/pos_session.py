@@ -282,7 +282,7 @@ class PosSession(models.Model):
         for record in self:
             company = record.config_id.journal_id.company_id
             start_date = record.start_at.date()
-            if (company.period_lock_date and start_date <= company.period_lock_date) or (start_date <= company._get_user_fiscal_lock_date()):
+            if start_date <= company._get_user_fiscal_lock_date():
                 raise ValidationError(_("You cannot create a session before the accounting lock date."))
 
     def _check_invoices_are_posted(self):

@@ -40,20 +40,28 @@ class ResCompany(models.Model):
             'point_of_sale_ticket_unique_code', 'point_of_sale_ticket_portal_url_display_mode', 'street', 'city', 'zip',
         ]
 
-    @api.constrains('period_lock_date', 'fiscalyear_lock_date')
-    def validate_period_lock_date(self):
-        """ This constrains makes it impossible to change the period lock date if
-        some open POS session exists into it. Without that, these POS sessions
-        would trigger an error message saying that the period has been locked when
-        trying to close them.
+    @api.constrains('hard_lock_date', 'fiscalyear_lock_date', 'sale_lock_date', 'purchase_lock_date')
+    def validate_lock_dates(self):
+        """ This constrains makes it impossible to change the relevant lock dates if
+        some open POS session would violate them. Without that, these POS sessions
+        could not be closed (since the closing entries violate the lock dates).
         """
         pos_session_model = self.env['pos.session'].sudo()
         for record in self:
+            # TODO: maybe looping over all non-closed sessions is a better approach?
             sessions_in_period = pos_session_model.search(
                 [
                     ("company_id", "child_of", record.id),
                     ("state", "!=", "closed"),
-                    ("start_at", "<=", record._get_user_fiscal_lock_date()),
+                    '|',
+                        ("start_at", "<=", record._get_user_fiscal_lock_date()),
+                        '|',
+                            '&',
+                                ("config_id.journal_id.type", "=", 'sale'),
+                                ("start_at", "<=", record._get_user_sale_lock_date()),
+                            '&',
+                                ("config_id.journal_id.type", "=", 'purchase'),
+                                ("start_at", "<=", record._get_user_purchase_lock_date()),
                 ]
             )
             if sessions_in_period:
