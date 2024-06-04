@@ -130,6 +130,7 @@ class account_journal(models.Model):
         self.env['account.move'].flush_model(['journal_id', 'date', 'sequence_prefix', 'sequence_number', 'state'])
         queries = []
         for company in self.env.companies:
+            lock_date = company.max_fiscalyear_lock_date
             queries.append(SQL(
                 """
                     SELECT move.journal_id,
@@ -144,7 +145,7 @@ class account_journal(models.Model):
                 """,
                 journal_ids=self.ids,
                 company_id=company.id,
-                fiscalyear_lock_date_clause=SQL('move.date > %s', lock_date) if (lock_date := company.fiscalyear_lock_date) else SQL('TRUE')
+                fiscalyear_lock_date_clause=SQL('move.date > %s', lock_date) if lock_date else SQL('TRUE')
             ))
         self.env.cr.execute(SQL(' UNION ALL '.join(['%s'] * len(queries)), *queries))
         return self.env.cr.fetchall()
@@ -160,7 +161,7 @@ class account_journal(models.Model):
             ('restrict_mode_hash_table', '=', True),
             ('inalterable_hash', '=', False),
             ('journal_id', '=', self.id),
-            ('date', '>', self.company_id._get_user_fiscal_lock_date()),
+            ('date', '>', self.company_id._get_user_fiscal_lock_date(journal=self)),
         ])._get_chains_to_hash(force_hash=True, raise_if_gap=False, raise_if_no_document=False, early_stop=early_stop, include_pre_last_hash=include_pre_last_hash)
 
     def _compute_has_sequence_holes(self):

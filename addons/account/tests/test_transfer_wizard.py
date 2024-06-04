@@ -398,7 +398,10 @@ class TestTransferWizard(AccountTestInvoicingCommon):
         move.action_post()
 
         # Set the lock date
-        move.company_id.write({'period_lock_date': '2019-02-28', 'fiscalyear_lock_date': '2019-02-28'})
+        move.company_id.write({
+            # TODO: other lock dates?
+            'fiscalyear_lock_date': '2019-02-28'
+        })
 
         # Open the transfer wizard at a date after the lock date
         wizard = self.env['account.automatic.entry.wizard'] \

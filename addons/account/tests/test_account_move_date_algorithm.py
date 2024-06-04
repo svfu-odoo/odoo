@@ -45,9 +45,9 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
             'date': date,
         })
 
-    def _set_lock_date(self, lock_date, period_lock_date=None):
+    def _set_lock_date(self, lock_date):
+        # TODO: ?: hard lock date ; or remove function
         self.env.company.fiscalyear_lock_date = fields.Date.from_string(lock_date)
-        self.env.company.period_lock_date = fields.Date.from_string(period_lock_date)
 
     def _reverse_invoice(self, invoice):
         move_reversal = self.env['account.move.reversal']\
@@ -258,11 +258,13 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
             'cash_basis_transition_account_id': tax_waiting_account.id,
         })
 
-        self._set_lock_date('2023-01-01', '2023-02-01')
+        self._set_lock_date('2023-01-01')
+        # TODO: test hard lock or journal lock dates instead?
+        # TODO: currently the test is a bit useless?
 
         for group, expected_date in (
                 ('account.group_account_manager', '2023-01-30'),
-                ('account.group_account_invoice', '2023-05-01'),
+                ('account.group_account_invoice', '2023-01-30'),
         ):
             with self.subTest(group=group, expected_date=expected_date):
                 self.env.user.groups_id = [Command.set(self.env.ref(group).ids)]
