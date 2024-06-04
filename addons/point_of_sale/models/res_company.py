@@ -2,6 +2,7 @@
 
 from odoo import api, models, fields, _
 from odoo.exceptions import ValidationError
+from odoo.osv import expression
 
 class ResCompany(models.Model):
     _name = 'res.company'
@@ -39,20 +40,27 @@ class ResCompany(models.Model):
             'point_of_sale_ticket_unique_code', 'point_of_sale_ticket_portal_url_display_mode', 'street', 'city', 'zip',
         ]
 
-    @api.constrains('period_lock_date', 'fiscalyear_lock_date')
-    def validate_period_lock_date(self):
-        """ This constrains makes it impossible to change the period lock date if
-        some open POS session exists into it. Without that, these POS sessions
-        would trigger an error message saying that the period has been locked when
-        trying to close them.
+    @api.constrains('fiscalyear_lock_date', 'tax_lock_date', 'sale_lock_date', 'purchase_lock_date', 'hard_lock_date')
+    def validate_lock_dates(self):
+        """ This constrains makes it impossible to change the relevant lock dates if
+        some open POS session would violate them. Without that, these POS sessions
+        could not be closed (since the closing entries violate the lock dates).
         """
         pos_session_model = self.env['pos.session'].sudo()
         for record in self:
+            fiscal_lock_date = max(record.max_fiscalyear_lock_date, record.max_hard_lock_date)
             sessions_in_period = pos_session_model.search(
                 [
                     ("company_id", "child_of", record.id),
                     ("state", "!=", "closed"),
-                    ("start_at", "<=", record._get_user_fiscal_lock_date()),
+                    *expression.OR([
+                        [("start_at", "<=", fiscal_lock_date)],
+                        [("start_at", "<=", record.max_tax_lock_date)],
+                        [("config_id.journal_id.type", "=", 'sale'),
+                         ("start_at", "<=", record.max_sale_lock_date)],
+                        [("config_id.journal_id.type", "=", 'purchase'),
+                         ("start_at", "<=", record.max_purchase_lock_date)],
+                    ])
                 ]
             )
             if sessions_in_period:
