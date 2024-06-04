@@ -423,7 +423,7 @@ class AccountJournal(models.Model):
         has_tax = self.env.context.get('has_tax') or False
         for journal in self:
             temp_move = self.env['account.move'].new({'journal_id': journal.id})
-            journal.accounting_date = temp_move._get_accounting_date(move_date, has_tax)
+            journal.accounting_date = temp_move._get_accounting_date(move_date, has_tax, journal)
 
 
     @api.onchange('type')
