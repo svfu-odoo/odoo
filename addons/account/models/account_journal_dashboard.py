@@ -144,6 +144,7 @@ class account_journal(models.Model):
                 """,
                 journal_ids=self.ids,
                 company_id=company.id,
+                # TODO: other lock dates
                 fiscalyear_lock_date_clause=SQL('move.date > %s', lock_date) if (lock_date := company.fiscalyear_lock_date) else SQL('TRUE')
             ))
         self.env.cr.execute(SQL(' UNION ALL '.join(['%s'] * len(queries)), *queries))
@@ -439,7 +440,7 @@ class account_journal(models.Model):
         # Misc Entries (journal items in the default_account not linked to bank.statement.line)
         misc_domain = []
         for journal in bank_cash_journals:
-            date_limit = journal.last_statement_id.date or journal.company_id.fiscalyear_lock_date
+            date_limit = journal.last_statement_id.date or journal.company_id.fiscalyear_lock_date  # TODO: other lock dates; parent lock
             misc_domain.append(
                 [('account_id', '=', journal.default_account_id.id), ('date', '>', date_limit)]
                 if date_limit else
@@ -998,7 +999,7 @@ class account_journal(models.Model):
             'search_default_no_st_line_id': True,
             'search_default_posted': False,
         }
-        date_from = self.last_statement_id.date or self.company_id.fiscalyear_lock_date
+        date_from = self.last_statement_id.date or self.company_id.fiscalyear_lock_date  # TODO: other lock dates; parent lock
         if date_from:
             action['context'] |= {
                 'date_from': date_from,

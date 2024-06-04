@@ -130,7 +130,7 @@ class TestCompanyBranch(AccountTestInvoicingCommon):
         moves = self.env['account.move'].search([])
         moves.filtered(lambda x: x.state != 'draft').button_draft()
         moves.unlink()
-        for lock in ['fiscalyear_lock_date', 'tax_lock_date']:
+        for lock in ['fiscalyear_lock_date', 'tax_lock_date']:  # TODO: other locks
             for root_lock, branch_lock, invoice_date, company, expected in (
                 # before both locks
                 ('3021-01-01', '3022-01-01', '3020-01-01', self.root_company, 'fail'),

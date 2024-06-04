@@ -346,6 +346,7 @@ class FecExportWizard(models.TransientModel):
         fiscalyear_lock_date = self.env.company.fiscalyear_lock_date
         if not self.test_file and (not fiscalyear_lock_date or fiscalyear_lock_date < self.date_to):
             self.env.company.write({'fiscalyear_lock_date': self.date_to})
+        # TODO: ?: what about the other lock dates (or if hard lock date is set)
 
         return {
             'file_name': f"{company_legal_data}FEC{end_date}{suffix}.csv",

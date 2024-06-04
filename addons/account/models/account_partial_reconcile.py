@@ -124,7 +124,7 @@ class AccountPartialReconcile(models.Model):
         # Reverse CABA entries.
         if moves_to_reverse:
             default_values_list = [{
-                'date': move._get_accounting_date(move.date, move._affect_tax_report()),
+                'date': move._get_accounting_date(move.date, move._affect_tax_report(), move.journal_id),
                 'ref': _('Reversal of: %s', move.name),
             } for move in moves_to_reverse]
             moves_to_reverse._reverse_moves(default_values_list, cancel=True)
@@ -486,6 +486,7 @@ class AccountPartialReconcile(models.Model):
 
                 # Init the journal entry.
                 lock_date = move.company_id._get_user_fiscal_lock_date()
+                # TODO: journal lock date ?
                 move_date = partial.max_date if partial.max_date > (lock_date or date.min) else today
                 move_vals = {
                     'move_type': 'entry',

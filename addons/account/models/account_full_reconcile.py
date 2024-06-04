@@ -28,7 +28,7 @@ class AccountFullReconcile(models.Model):
         # Reverse all exchange moves at once.
         if moves_to_reverse:
             default_values_list = [{
-                'date': move._get_accounting_date(move.date, move._affect_tax_report()),
+                'date': move._get_accounting_date(move.date, move._affect_tax_report(), move.journal_id),
                 'ref': _('Reversal of: %s', move.name),
             } for move in moves_to_reverse]
             moves_to_reverse._reverse_moves(default_values_list, cancel=True)

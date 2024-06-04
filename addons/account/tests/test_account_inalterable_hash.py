@@ -502,12 +502,7 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
         # Shouldn't raise since no moves has ever been hashed
         self.company_data['company'].fiscalyear_lock_date = fields.Date.to_date('2024-01-31')
 
-        # Let's has just one and revert the lock date
-        def _autorise_lock_date_changes(*args, **kwargs):
-            pass
-
-        with patch('odoo.addons.account_lock.models.res_company.ResCompany._autorise_lock_date_changes', new=_autorise_lock_date_changes):
-            self.company_data['company'].fiscalyear_lock_date = False
+        self.company_data['company'].fiscalyear_lock_date = False
         move1.button_hash()
 
         # Now we should raise because we have a hashed move before the lock date
