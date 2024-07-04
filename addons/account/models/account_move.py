@@ -2110,9 +2110,6 @@ class AccountMove(models.Model):
     def _check_fiscal_lock_dates(self, user_fiscal_lock_dates=None):
         if not user_fiscal_lock_dates:
             user_fiscal_lock_dates = {}
-        # TODO: checks hard lock date too often
-        # TODO: better: _get_fiscal_lock_date based on journal too
-        #               -> cash lock date
         fields_to_check = [
             # (field, "journal type restriction")
             ('fiscalyear_lock_date', None),
@@ -2124,13 +2121,15 @@ class AccountMove(models.Model):
             for field, journal_type in fields_to_check:
                 if journal_type and journal_type != move.journal_id.type:
                     continue
-                lock_date_fields = user_fiscal_lock_dates.setdefault(company, {})
-                lock_date = lock_date_fields.get(field, None)
-                if not lock_date:
-                    lock_date_fields[field] = lock_date = company._get_user_lock_date(field)
-                if move.date <= lock_date:
-                    # TODO: better message
-                    message = _("You cannot add/modify entries prior to and inclusive of a lock date %s.", format_date(self.env, lock_date))
+                user_lock_dates = user_fiscal_lock_dates.setdefault(company, {})
+                violated_lock_date, user_lock_date = company._get_violated_soft_lock_date(field, move.date, user_lock_dates.get(field, None))
+                user_lock_dates[field] = user_lock_date
+                if not violated_lock_date:
+                    hard_lock_date = company.max_hard_lock_date
+                    violated_lock_date = hard_lock_date if move.date <= hard_lock_date else None
+                if violated_lock_date:
+                    # TODO: better message; ?: name lock; have _get_violated_soft_lock_date return the "name"
+                    message = _("You cannot add/modify entries prior to and inclusive of a lock date %s.", format_date(self.env, violated_lock_date))
                     raise UserError(message)
         return user_fiscal_lock_dates
 
@@ -4340,11 +4339,10 @@ class AccountMove(models.Model):
 
         for move in to_post:
             affects_tax_report = move._affect_tax_report()
-            # TODO: cache lock dates
+            # TODO: ?: cache lock dates
             lock_dates = move._get_violated_lock_dates(move.date, affects_tax_report, move.journal_id)
             if lock_dates:
-                # TODO: _get_accountning_date computes the lock dates again
-                move.date = move._get_accounting_date(move.invoice_date or move.date, affects_tax_report, move.journal_id)
+                move.date = move._get_accounting_date(move.invoice_date or move.date, affects_tax_report, move.journal_id, lock_dates=lock_dates)
 
         # Create the analytic lines in batch is faster as it leads to less cache invalidation.
         to_post.line_ids._create_analytic_lines()
@@ -4834,7 +4832,7 @@ class AccountMove(models.Model):
     def is_outbound(self, include_receipts=True):
         return self.move_type in self.get_outbound_types(include_receipts)
 
-    def _get_accounting_date(self, invoice_date, has_tax, journal):
+    def _get_accounting_date(self, invoice_date, has_tax, journal, lock_dates=None):
         """Get correct accounting date for previous periods, taking tax lock date into account.
         When registering an invoice in the past, we still want the sequence to be increasing.
         We then take the last day of the period, depending on the sequence format.
@@ -4846,15 +4844,17 @@ class AccountMove(models.Model):
         :return (datetime.date):
         """
         # TODO: docstring
-        lock_dates = self._get_violated_lock_dates(invoice_date, has_tax, journal)
+        lock_dates = lock_dates or self._get_violated_lock_dates(invoice_date, has_tax, journal)
         today = fields.Date.context_today(self)
         highest_name = self.highest_name or self._get_last_sequence(relaxed=True)
         number_reset = self._deduce_sequence_number_reset(highest_name)
+        # TODO: issues if the lock date is in the future
         if lock_dates:
             invoice_date = lock_dates[-1][0] + timedelta(days=1)
         if self.is_sale_document(include_receipts=True):
             if lock_dates:
                 if not highest_name or number_reset == 'month':
+                    # TODO: today < invoice_date possible when lock date is in the future
                     return min(today, date_utils.get_month(invoice_date)[1])
                 elif number_reset == 'year':
                     return min(today, date_utils.end_of(invoice_date, 'year'))

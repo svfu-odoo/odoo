@@ -23,13 +23,9 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             company_id=cls.env.company.id,
         )
 
-        # TODO: clean up this function
-
         cls.company_data_2 = cls.setup_other_company()
-        cls.other_currency = cls.setup_other_currency('HRK')
 
-        tax_repartition_line = cls.company_data['default_tax_sale'].refund_repartition_line_ids\
-            .filtered(lambda line: line.repartition_type == 'tax')
+        # TODO: clean up
         cls.test_move = cls.env['account.move'].create({
             'move_type': 'entry',
             'date': fields.Date.from_string('2016-01-01'),
@@ -47,33 +43,8 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                     'credit': 0.0,
                     'tax_ids': [(6, 0, cls.company_data['default_tax_sale'].ids)],
                 }),
-                (0, None, {
-                    'name': 'tax line',
-                    'account_id': cls.company_data['default_account_tax_sale'].id,
-                    'debit': 150.0,
-                    'credit': 0.0,
-                    'tax_repartition_line_id': tax_repartition_line.id,
-                }),
-                (0, None, {
-                    'name': 'counterpart line',
-                    'account_id': cls.company_data['default_account_expense'].id,
-                    'debit': 0.0,
-                    'credit': 1650.0,
-                }),
             ]
         })
-        cls.entry_line_vals_1 = {
-            'name': 'Line 1',
-            'account_id': cls.company_data['default_account_revenue'].id,
-            'debit': 500.0,
-            'credit': 0.0,
-        }
-        cls.entry_line_vals_2 = {
-            'name': 'Line 2',
-            'account_id': cls.company_data['default_account_expense'].id,
-            'debit': 0.0,
-            'credit': 500.0,
-        }
 
     @classmethod
     def default_env_context(cls):
@@ -86,7 +57,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
         # Lock the move
         self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
         # Add an exception to make the move editable (for the current user)
         now = fields.Datetime.now()
@@ -98,11 +69,11 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             'end_datetime': now + timedelta(hours=24),
             'reason': 'test_local_exception_move_edit_multi_user',
         })
-        self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+        self.test_move.button_draft()
 
         # Check that the exception does not apply to other users
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.with_user(self.other_user).line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
     def test_global_exception_move_edit_multi_user(self):
         self.test_move.action_post()
@@ -110,7 +81,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
         # Lock the move
         self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
         # Add a global exception to make the move editable for everyone
         now = fields.Datetime.now()
@@ -122,8 +93,57 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             'end_datetime': now + timedelta(hours=24),
             'reason': 'test_global_exception_move_edit_multi_user',
         })
-        self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
-        self.test_move.with_user(self.other_user).line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+
+        self.test_move.button_draft()
+        self.test_move.action_post()
+
+        self.test_move.with_user(self.other_user).button_draft()
+
+    def test_local_exception_wrong_company(self):
+        self.test_move.action_post()
+
+        # Lock the move
+        self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.test_move.button_draft()
+
+        # Add an exception for another company
+        now = fields.Datetime.now()
+        self.env['account.lock_exception'].create({
+            'company_id': self.company_data_2['company'].id,
+            'user_id': self.env.user.id,
+            'fiscalyear_lock_date': fields.Date.from_string('2010-01-01'),
+            'start_datetime': now,
+            'end_datetime': now + timedelta(hours=24),
+            'reason': 'test_local_exception_move_edit_multi_user',
+        })
+
+        # Check that the exception is insufficient
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.test_move.button_draft()
+
+    def test_local_exception_insufficient(self):
+        self.test_move.action_post()
+
+        # Lock the move
+        self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.test_move.button_draft()
+
+        # Add an exception before the lock date but after the date of the test_move
+        now = fields.Datetime.now()
+        self.env['account.lock_exception'].create({
+            'company_id': self.company.id,
+            'user_id': self.env.user.id,
+            'fiscalyear_lock_date': fields.Date.from_string('2018-01-01'),
+            'start_datetime': now,
+            'end_datetime': now + timedelta(hours=24),
+            'reason': 'test_local_exception_move_edit_multi_user',
+        })
+
+        # Check that the exception is insufficient
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.test_move.button_draft()
 
     def test_expired_exception(self):
         self.test_move.action_post()
@@ -131,7 +151,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
         # Lock the move
         self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
         # Add an exception to make the move editable (for the current user)
         now = fields.Datetime.now()
@@ -144,7 +164,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             'reason': 'test_expired_exception',
         })
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
     def test_future_exception(self):
         self.test_move.action_post()
@@ -152,7 +172,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
         # Lock the move
         self.company.fiscalyear_lock_date = fields.Date.from_string('2020-01-01')
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
 
         # Add an exception to make the move editable (for the current user)
         now = fields.Datetime.now()
@@ -165,4 +185,4 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             'reason': 'test_future_exception',
         })
         with self.assertRaises(UserError), self.cr.savepoint():
-            self.test_move.line_ids[0].write({'account_id': self.test_move.line_ids[0].account_id.copy().id})
+            self.test_move.button_draft()
