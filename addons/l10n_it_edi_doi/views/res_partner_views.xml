@@ -26,7 +26,7 @@
                         class="oe_stat_button"
                         name="l10n_it_edi_doi_action_open_declarations"
                         icon="fa-list"
-                        invisible="'IT' not in fiscal_country_codes">
+                        attrs="{'invisible': [('country_code', '!=', 'IT')]}">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_text">Declarations of Intent</span>
                     </div>

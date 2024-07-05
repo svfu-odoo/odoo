@@ -30,7 +30,7 @@
                 <field name="name" string="Number"/>
                 <field name="date_order" widget="date"/>
                 <field name="partner_id"/>
-                <field name="currency_id" column_invisible="True"/>
+                <field name="currency_id" attrs="{'column_invisible': True}"/>
                 <field name="state"
                        decoration-success="state == 'sale'"
                        decoration-info="state == 'draft'"
@@ -52,7 +52,7 @@
                         class="oe_stat_button"
                         name="action_open_declaration_of_intent"
                         icon="fa-list"
-                        invisible="not l10n_it_edi_doi_id">
+                        attrs="{'invisible': [('l10n_it_edi_doi_id', '=', False)]}">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_text">Declaration of Intent</span>
                     </div>
@@ -60,14 +60,14 @@
             </div>
             <xpath expr="//header" position="after">
                 <div class="alert alert-warning mb-0" role="alert"
-                     invisible="not l10n_it_edi_doi_warning">
+                     attrs="{'invisible': [('l10n_it_edi_doi_warning', '=', '')]}">
                     <field name="l10n_it_edi_doi_warning"/>
                 </div>
             </xpath>
             <xpath expr="//label[@for='fiscal_position_id']" position="before">
                 <field name="l10n_it_edi_doi_use" invisible="True"/>
                 <field name="l10n_it_edi_doi_id"
-                       invisible="not l10n_it_edi_doi_use"
+                       attrs="{'invisible': [('l10n_it_edi_doi_use', '=', False)]}"
                        options='{"no_quick_create": True}'
                        domain="[
                            ('state', '!=', 'draft'),
