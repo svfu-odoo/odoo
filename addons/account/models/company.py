@@ -6,6 +6,7 @@ import calendar
 
 from odoo import fields, models, api, _, Command
 from odoo.exceptions import ValidationError, UserError, RedirectWarning
+from odoo.osv import expression
 from odoo.tools import SQL
 from odoo.tools.mail import is_html_empty
 from odoo.tools.misc import format_date
@@ -378,19 +379,21 @@ class ResCompany(models.Model):
         return action
 
     def _validate_locks(self, values):
-        fiscalyear_lock_date = values.get('fiscalyear_lock_date')
-        hard_lock_date = values.get('hard_lock_date')
-        # TODO: check sale and purchase locks
-        sale_lock_date = values.get('sale_lock_date')
-        purchase_lock_date = values.get('purchase_lock_date')
-        if fiscalyear_lock_date or hard_lock_date:
-            lock_date = max(fields.Date.from_string(fiscalyear_lock_date) or date.min,
-                            fields.Date.from_string(hard_lock_date) or date.min)
+        fiscalyear_lock_date_string = values.get('fiscalyear_lock_date')
+        hard_lock_date_string = values.get('hard_lock_date')
+        sale_lock_date_string = values.get('sale_lock_date')
+        purchase_lock_date_string = values.get('purchase_lock_date')
 
+        fiscal_lock_date = None
+        if fiscalyear_lock_date_string or hard_lock_date_string:
+            fiscal_lock_date = max(fields.Date.from_string(fiscalyear_lock_date_string) or date.min,
+                                   fields.Date.from_string(hard_lock_date_string) or date.min)
+
+        if fiscal_lock_date:
             unreconciled_statement_lines = self.env['account.bank.statement.line'].search([
                 ('company_id', 'child_of', self.ids),
                 ('is_reconciled', '=', False),
-                ('date', '<=', lock_date),
+                ('date', '<=', fiscal_lock_date),
                 ('move_id.state', 'in', ('draft', 'posted')),
             ])
             if unreconciled_statement_lines:
@@ -398,6 +401,10 @@ class ResCompany(models.Model):
                             "You should either reconcile or delete them.")
                 action_error = self._get_fiscalyear_lock_statement_lines_redirect_action(unreconciled_statement_lines)
                 raise RedirectWarning(error_msg, action_error, _('Show Unreconciled Bank Statement Line'))
+
+        if fiscal_lock_date or sale_lock_date_string or purchase_lock_date_string:
+            sale_lock_date = fields.Date.from_string(sale_lock_date_string)
+            purchase_lock_date = fields.Date.from_string(purchase_lock_date_string)
 
             # Check if there are still unhashed journal entries
             # Only check journals that have at least one hashed entry.
@@ -411,16 +418,27 @@ class ResCompany(models.Model):
                     ('journal_id', '=', journal.id),
                 ], limit=1):
                     journals_to_check |= journal
-
+            date_domains = []
+            if fiscal_lock_date:
+                date_domains.append([('date', '<=', fiscal_lock_date)])
+            for lock_date, journal_type in [(sale_lock_date, 'sale'), (purchase_lock_date, 'purchase')]:
+                if lock_date:
+                    date_domains.append(
+                        expression.AND([
+                            [('date', '<=', lock_date)],
+                            [('journal_id.type', '=', journal_type)],
+                        ])
+                       )
             chains_to_hash = self.env['account.move'].search([
                 ('restrict_mode_hash_table', '=', True),
                 ('inalterable_hash', '=', False),
                 ('journal_id', 'in', journals_to_check.ids),
-                ('date', '<=', lock_date),
+                *expression.OR(date_domains),
             ])._get_chains_to_hash(force_hash=True, raise_if_no_document=False)
+
             move_ids = [move.id for chain in chains_to_hash for move in chain['moves']]
             if move_ids:
-                msg = _("Some journal entries have not been hashed yet. You should hash them before locking the fiscal year.")
+                msg = _("Some journal entries have not been hashed yet. You should hash them before setting the lock dates.")
                 action = {
                     'type': 'ir.actions.act_window',
                     'name': _('Journal Entries to Hash'),
@@ -439,8 +457,6 @@ class ResCompany(models.Model):
         """Get the lock date called `soft_lock_date_field` for this company depending on the user.
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
         """
-        if not self:
-            return date.min
         self.ensure_one()
         soft_lock_date = self[soft_lock_date_field]
         if soft_lock_date:
@@ -473,8 +489,6 @@ class ResCompany(models.Model):
 
     def _get_user_fiscal_lock_date(self, journal=None):
         """Get the fiscal lock date for this company depending on the user"""
-        if not self:
-            return date.min
         self.ensure_one()
         lock = max(self._get_user_lock_date('fiscalyear_lock_date'), self.max_hard_lock_date)
         if journal:
@@ -508,7 +522,6 @@ class ResCompany(models.Model):
 
     def _get_lock_date_violations(self, accounting_date, fiscalyear=True, sale=True, purchase=True, tax=True, hard=True, user_lock_dates=None):
         # TODO: docstring
-        # TODO: user_lock_dates
         self.ensure_one()
         locks = []
         if not user_lock_dates:
