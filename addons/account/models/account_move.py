@@ -2107,32 +2107,25 @@ class AccountMove(models.Model):
 
         return self._cr.fetchall()
 
-    def _check_fiscal_lock_dates(self, user_fiscal_lock_dates=None):
-        if not user_fiscal_lock_dates:
-            user_fiscal_lock_dates = {}
-        fields_to_check = [
-            # (field, "journal type restriction")
-            ('fiscalyear_lock_date', None),
-            ('sale_lock_date', 'sale'),
-            ('purchase_lock_date', 'purchase'),
-        ]
+    def _check_fiscal_lock_dates(self, user_lock_dates=None):
         for move in self:
-            company = move.company_id
-            for field, journal_type in fields_to_check:
-                if journal_type and journal_type != move.journal_id.type:
-                    continue
-                user_lock_dates = user_fiscal_lock_dates.setdefault(company, {})
-                violated_lock_date, user_lock_date = company._get_violated_soft_lock_date(field, move.date, user_lock_dates.get(field, None))
-                if user_lock_date:
-                    user_lock_dates[field] = user_lock_date
-                if not violated_lock_date:
-                    hard_lock_date = company.max_hard_lock_date
-                    violated_lock_date = hard_lock_date if move.date <= hard_lock_date else None
-                if violated_lock_date:
-                    # TODO: better message; ?: name lock; have _get_violated_soft_lock_date return the "name"
-                    message = _("You cannot add/modify entries prior to and inclusive of a lock date %s.", format_date(self.env, violated_lock_date))
-                    raise UserError(message)
-        return user_fiscal_lock_dates
+            journal = move.journal_id
+            violated_lock_dates, user_lock_dates = move.company_id._get_lock_date_violations(
+                move.date,
+                fiscalyear=True,
+                sale=journal and journal.type == 'sale',
+                purchase=journal and journal.type == 'purchase',
+                tax=False,
+                hard=True,
+                user_lock_dates=user_lock_dates,
+            )
+            if violated_lock_dates:
+                lock_date, lock_type = violated_lock_dates[-1]
+                message = _("You cannot add/modify entries prior to and inclusive of the %(lock_type)s lock date %(lock_date)s.",
+                            lock_type=lock_type,
+                            lock_date=format_date(self.env, lock_date))
+                raise UserError(message)
+        return user_lock_dates
 
     @api.constrains('auto_post', 'invoice_date')
     def _require_bill_date_for_autopost(self):
@@ -2779,8 +2772,7 @@ class AccountMove(models.Model):
             return True
         self._sanitize_vals(vals)
 
-        user_fiscal_lock_dates = {}
-        user_tax_lock_dates = {}
+        user_lock_dates = {}
         for move in self:
             violated_fields = set(vals).intersection(move._get_integrity_hash_fields() + ['inalterable_hash'])
             if move.inalterable_hash and violated_fields:
@@ -2809,15 +2801,14 @@ class AccountMove(models.Model):
                     ('name' in vals and move.name != vals['name'])
                     or ('date' in vals and move.date != vals['date'])
             ):
-                # TODO: or check after the loop
-                move._check_fiscal_lock_dates(user_fiscal_lock_dates)
-                move.line_ids._check_tax_lock_date(user_tax_lock_dates)
+                move._check_fiscal_lock_dates(user_lock_dates)
+                move.line_ids._check_tax_lock_date(user_lock_dates)
 
             # You can't post subtract a move to a locked period.
             if 'state' in vals and move.state == 'posted' and vals['state'] != 'posted':
                 # TODO: or check after the loop
-                move._check_fiscal_lock_dates(user_fiscal_lock_dates)
-                move.line_ids._check_tax_lock_date(user_tax_lock_dates)
+                move._check_fiscal_lock_dates(user_lock_dates)
+                move.line_ids._check_tax_lock_date(user_lock_dates)
 
             # Disallow modifying readonly fields on a posted move
             move_state = vals.get('state', move.state)
@@ -4834,17 +4825,17 @@ class AccountMove(models.Model):
         return self.move_type in self.get_outbound_types(include_receipts)
 
     def _get_accounting_date(self, invoice_date, has_tax, journal, lock_dates=None):
-        """Get correct accounting date for previous periods, taking tax lock date into account.
+        """Get correct accounting date for previous periods, taking tax lock date and journal (if specified) into account.
         When registering an invoice in the past, we still want the sequence to be increasing.
         We then take the last day of the period, depending on the sequence format.
 
         If there is a tax lock date and there are taxes involved, we register the invoice at the
         last date of the first open period.
         :param invoice_date (datetime.date): The invoice date
+        :param journal (account.journal): The affected journal
         :param has_tax (bool): Iff any taxes are involved in the lines of the invoice
         :return (datetime.date):
         """
-        # TODO: docstring
         lock_dates = lock_dates or self._get_violated_lock_dates(invoice_date, has_tax, journal)
         today = fields.Date.context_today(self)
         highest_name = self.highest_name or self._get_last_sequence(relaxed=True)
@@ -4877,20 +4868,19 @@ class AccountMove(models.Model):
         :return: a list of tuples containing the lock dates affecting this move, ordered chronologically.
         """
         # TODO: docstring
-        # TODO: remove this function?
         return self.company_id._get_violated_lock_dates(invoice_date, has_tax, journal)
 
     def _get_lock_date_message(self, invoice_date, has_tax, journal):
         """Get a message describing the latest lock date affecting the specified date.
         :param invoice_date: The date to be checked
         :param has_tax: If any taxes are involved in the lines of the invoice
+        :param journal (account.journal): The affected journal
         :return: a message describing the latest lock date affecting this move and the date it will be
                  accounted on if posted, or False if no lock dates affect this move.
         """
-        # TODO: docstring
         lock_dates = self._get_violated_lock_dates(invoice_date, has_tax, journal)
         if lock_dates:
-            invoice_date = self._get_accounting_date(invoice_date, has_tax, journal)
+            invoice_date = self._get_accounting_date(invoice_date, has_tax, journal, lock_dates=lock_dates)
             lock_date, lock_type = lock_dates[-1]
             tax_lock_date_message = _(
                 "The date is being set prior to the %(lock_type)s lock date %(lock_date)s. "

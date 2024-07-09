@@ -49,12 +49,14 @@ class ResCompany(models.Model):
         pos_session_model = self.env['pos.session'].sudo()
         for record in self:
             # TODO: maybe looping over all non-closed sessions is a better approach?
+            # TODO: ?: tax lock date; would also need to be put in `api.constrains`
+            general_lock_date = max(record.max_fiscalyear_lock_date, record.max_hard_lock_date)
             sessions_in_period = pos_session_model.search(
                 [
                     ("company_id", "child_of", record.id),
                     ("state", "!=", "closed"),
                     '|',
-                        ("start_at", "<=", record.max_fiscalyear_lock_date),  # TODO: lock_date = max(record.max_fiscalyear_lock_date, record.max_hard_lock_date)
+                        ("start_at", "<=", general_lock_date),
                         '|',
                             '&',
                                 ("config_id.journal_id.type", "=", 'sale'),

@@ -1320,23 +1320,28 @@ class AccountMoveLine(models.Model):
         self.ensure_one()
         return self.tax_ids or self.tax_line_id or self.tax_tag_ids.filtered(lambda x: x.applicability == "taxes")
 
-    def _check_tax_lock_date(self, user_tax_lock_dates=None):
-        if not user_tax_lock_dates:
-            user_tax_lock_dates = {}
+    def _check_tax_lock_date(self, user_lock_dates=None):
         for line in self:
             if line.move_id.state != 'posted':
                 continue
             move = line.move_id
-            company = move.company_id
-            tax_lock_date = user_tax_lock_dates.get(company, None)
-            if not tax_lock_date:
-                user_tax_lock_dates[company] = tax_lock_date = company._get_user_lock_date('tax_lock_date')
-            # TODO: tax_lock_date should always be a date
-            if move.date <= tax_lock_date and line._affect_tax_report():
+            violated_lock_dates, user_lock_dates = move.company_id._get_lock_date_violations(
+                move.date,
+                fiscalyear=False,
+                sale=False,
+                purchase=False,
+                tax=True,
+                hard=True,
+                user_lock_dates=user_lock_dates,
+            )
+            if violated_lock_dates and line._affect_tax_report():
+                lock_date, lock_type = violated_lock_dates[-1]
+                # TODO: first part of the error message
                 raise UserError(_("The operation is refused as it would impact an already issued tax statement. "
-                                  "Please change the journal entry date or the tax lock date set in the settings (%s) to proceed.",
-                                  format_date(self.env, tax_lock_date)))
-        return user_tax_lock_dates
+                                  "Please change the journal entry date or the %(lock_type)s lock date (%(lock_date)s) to proceed.",
+                                  lock_type=lock_type,
+                                  lock_date=format_date(self.env, lock_date)))
+        return user_lock_dates
 
     def _check_reconciliation(self):
         for line in self:

@@ -122,11 +122,12 @@ class AccountLockException(models.Model):
             for field, value in changed_locks:
                 # TODO: format; check whether `.string` is translated
                 changed_locks_html += f"<li>{company[field]} → {value} <i>({company._fields[field].string})</i></li>"
+            end_datetime_string = exception.end_datetime if exception.end_datetime else _("forever")
             company_chatter_message = Markup(_(
-                "%(exception)s for %(user)s until %(end_datetime)s for '%(reason)s'.\n%(changed_locks)s",
+                "%(exception)s for %(user)s valid %(end_datetime_string)s for '%(reason)s'.\n%(changed_locks)s",
                 exception=exception._get_html_link(title=_("New exception")),
                 user=exception.user_id._get_html_link() if exception.user_id else _("everyone"),
-                end_datetime=exception.end_datetime,
+                end_datetime_string=end_datetime_string,
                 reason=exception.reason,
                 changed_locks=Markup(changed_locks_html),
             ))
