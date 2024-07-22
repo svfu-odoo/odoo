@@ -73,13 +73,6 @@ class AccountLockException(models.Model):
         help="The date the Purchase Lock Date is set to by this exception. If no date is set the lock date is not changed."
     )
 
-    last_modified_move_ids = fields.Many2many(
-        string='Modified Journal Entries',
-        comodel_name='account.move',
-        compute='_compute_last_modified_move_ids',
-        help="Journal Entries last modified while the exception was valid",
-    )
-
     def init(self):
         super().init()
         create_index(self.env.cr,
@@ -90,32 +83,6 @@ class AccountLockException(models.Model):
     def _compute_display_name(self):
         for record in self:
             record.display_name = _("Lock Date Exception %s", record.id)
-
-    def _compute_last_modified_move_ids(self):
-        for exception in self:
-            last_modified_moves = self.env['account.move'].search(exception._get_moves_last_modified_during_domain())
-            exception.last_modified_move_ids = [Command.set(last_modified_moves.ids)]
-
-    def _get_moves_last_modified_during_domain(self):
-        self.ensure_one()
-        domain = [
-            ('write_date', '>=', self.start_datetime),
-        ]
-        if self.end_datetime:
-            domain.append(('write_date', '<=', self.end_datetime))
-        if self.user_id:
-            domain.append(('write_uid', '=', self.user_id.id))
-        return domain
-
-    def action_show_moves_last_modified_during(self):
-        self.ensure_one()
-        return {
-            'name': _("Journal entries last modified during the exception"),
-            'type': 'ir.actions.act_window',
-            'view_mode': 'tree',
-            'res_model': 'account.move',
-            'domain': self._get_moves_last_modified_during_domain(),
-        }
 
     @api.model_create_multi
     def create(self, vals_list):

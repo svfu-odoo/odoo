@@ -15,12 +15,6 @@
                     </header>
                     <sheet>
                         <div class="oe_button_box" name="button_box">
-                            <button class="oe_stat_button" name="action_show_moves_last_modified_during"
-                                    type="object" icon="fa-bars">
-                                <div class="o_stat_info">
-                                    <span class="o_stat_text">Modified Journal Entries</span>
-                                </div>
-                            </button>
                         </div>
                         <div>
                             <div class="oe_title">
@@ -46,7 +40,6 @@
                                     <field name="fiscalyear_lock_date" readonly="True" invisible="not fiscalyear_lock_date"/>
                                 </group>
                             </group>
-                            <field name="last_modified_move_ids" widget='one2many'/>
                         </div>
                     </sheet>
                     <chatter/>
