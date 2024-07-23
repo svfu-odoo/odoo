@@ -430,7 +430,7 @@ class ResCompany(models.Model):
                             [('date', '<=', lock_date)],
                             [('journal_id.type', '=', journal_type)],
                         ])
-                       )
+                    )
             chains_to_hash = self.env['account.move'].search([
                 ('restrict_mode_hash_table', '=', True),
                 ('inalterable_hash', '=', False),
@@ -459,7 +459,7 @@ class ResCompany(models.Model):
         """Get the lock date called `soft_lock_date_field` for this company depending on the user.
         We consider the field and exceptions for it in this company and the parent companies.
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
-        :return the user lock date
+        :return tuple (user lock date, exception)
         """
         self.ensure_one()
         soft_lock_date = self[soft_lock_date_field]
@@ -488,11 +488,12 @@ class ResCompany(models.Model):
         soft_lock_date = soft_lock_date or date.min
         if self.parent_id:
             # We need to use sudo, since we might not have access to a parent company.
-            soft_lock_date = max(soft_lock_date, self.sudo().parent_id._get_user_lock_date(soft_lock_date_field))
-        return soft_lock_date
+            parent_soft_lock_date = self.sudo().parent_id._get_user_lock_date(soft_lock_date_field)[0]
+            soft_lock_date = max(soft_lock_date, parent_soft_lock_date)
+        return soft_lock_date, exception
 
     def _get_fiscal_lock_date(self, journal):
-        """Get the fiscal lock date for this company ignoring user exceptions"""
+        """Get the fiscal lock date for this company (depending on the affected journal) ignoring user exceptions"""
         self.ensure_one()
         lock = max(self.max_fiscalyear_lock_date, self.max_hard_lock_date)
         if journal:
@@ -503,14 +504,14 @@ class ResCompany(models.Model):
         return lock
 
     def _get_user_fiscal_lock_date(self, journal):
-        """Get the fiscal lock date for this company depending on the user"""
+        """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions"""
         self.ensure_one()
-        lock = max(self._get_user_lock_date('fiscalyear_lock_date'), self.max_hard_lock_date)
+        lock = max(self._get_user_lock_date('fiscalyear_lock_date')[0], self.max_hard_lock_date)
         if journal:
             if journal.type == 'sale':
-                lock = max(self._get_user_lock_date('sale_lock_date'), lock)
+                lock = max(self._get_user_lock_date('sale_lock_date')[0], lock)
             elif journal.type == 'purchase':
-                lock = max(self._get_user_lock_date('purchase_lock_date'), lock)
+                lock = max(self._get_user_lock_date('purchase_lock_date')[0], lock)
         return lock
 
     def _get_violated_soft_lock_date(self, soft_lock_date_field, date, user_lock_date=None):
@@ -519,7 +520,7 @@ class ResCompany(models.Model):
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
         :param date: We check whether this date violates the lock date.
         :param user_lock_date: We can pass the user lock date directly to avoid (re-)computing it.
-        :return Tuple (a, b) where a is the violated lock date as a date and b is the user lock date
+        :return tuple (a, b) where a is the violated lock date as a date and b is the user lock date
                 (like returned by `_get_user_lock_date`).
                 Returning the user lock date avoids having to recompute it.
         """
@@ -531,7 +532,7 @@ class ResCompany(models.Model):
         if date <= regular_lock_date:
             violated_date = regular_lock_date
             user_lock_date = user_lock_date or self._get_user_lock_date(soft_lock_date_field)
-            violated_date = None if date > user_lock_date else user_lock_date
+            violated_date = None if date > user_lock_date[0] else user_lock_date[0]
         return violated_date, user_lock_date
 
     def _get_lock_date_violations(self, accounting_date, fiscalyear=True, sale=True, purchase=True, tax=True, hard=True, user_lock_dates=None):
@@ -550,15 +551,16 @@ class ResCompany(models.Model):
         """
         self.ensure_one()
         locks = []
+        exceptions = []
         if not user_lock_dates:
             user_lock_dates = {}
 
         if not accounting_date:
-            return locks, user_lock_dates
+            return locks, exceptions, user_lock_dates
 
         company_user_lock_dates = (user_lock_dates or {}).setdefault(self, {})
         soft_lock_date_fields_to_check = [
-            # (field, "to check", description)
+            # (field, "to check")
             ('fiscalyear_lock_date', fiscalyear),
             ('sale_lock_date', sale),
             ('purchase_lock_date', purchase),
@@ -568,17 +570,21 @@ class ResCompany(models.Model):
             if not to_check:
                 continue
             violated_date, user_lock_date = self._get_violated_soft_lock_date(field, accounting_date, company_user_lock_dates.get(field, None))
+            exception = None
             if user_lock_date:
+                exception = user_lock_date[1]
                 company_user_lock_dates[field] = user_lock_date
+                exceptions.append((user_lock_date[0], field, exception))
             if violated_date:
                 locks.append((violated_date, field))
 
         if hard:
+            # No exceptions for Hard Lock Date
             hard_lock_date = self.max_hard_lock_date
             if accounting_date <= hard_lock_date:
                 locks.append((hard_lock_date, 'hard_lock_date'))
 
-        return locks, user_lock_dates
+        return locks, exceptions, user_lock_dates
 
     @api.model
     def _get_lock_date_violations_string(self, lock_date_violations):
@@ -608,7 +614,6 @@ class ResCompany(models.Model):
         return locks
 
     def write(self, values):
-        #restrict the closing of FY if there are still unposted entries
         self._validate_locks(values)
 
         # Reflect the change on accounts

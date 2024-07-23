@@ -73,6 +73,12 @@ class AccountLockException(models.Model):
         help="The date the Purchase Lock Date is set to by this exception. If no date is set the lock date is not changed."
     )
 
+    modified_move_ids = fields.Many2many(
+        string='Modified Journal Entries',
+        comodel_name='account.move',
+        help="Journal Entries modified while the exception was valid",
+    )
+
     def init(self):
         super().init()
         create_index(self.env.cr,
@@ -110,8 +116,8 @@ class AccountLockException(models.Model):
             reason_string = _(" for '%s'", exception.reason) if exception.reason else ""
             company_chatter_message = _(
                 "%(exception)s for %(user)s valid %(end_datetime_string)s%(reason)s.",
-                exception=exception._get_html_link(title=_("Exception")),
-                user=exception.user_id._get_html_link() if exception.user_id else _("everyone"),
+                exception=exception._get_html_link(title=_("Exception")),  # TODO: remove
+                user=exception.user_id.display_name if exception.user_id else _("everyone"),
                 end_datetime_string=end_datetime_string,
                 reason=reason_string,
             )

@@ -140,7 +140,6 @@ class account_journal(models.Model):
                      WHERE move.journal_id = ANY(%(journal_ids)s)
                        AND move.company_id = %(company_id)s
                        AND move.made_sequence_gap = TRUE
-                       AND move.state = 'posted'
                        AND move.date > %(fiscal_lock_date)s
                        AND (journal.type <> 'sale' OR move.date > %(sale_lock_date)s)
                        AND (journal.type <> 'purchase' OR move.date > %(purchase_lock_date)s)

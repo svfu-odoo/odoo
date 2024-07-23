@@ -34,11 +34,6 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             ('purchase_lock_date', 'in_invoice'),
         ]
 
-    @classmethod
-    def default_env_context(cls):
-        # OVERRIDE
-        return {}
-
     def test_local_exception_move_edit_multi_user(self):
         """
         Test that an exception for a specific user only works for that user.

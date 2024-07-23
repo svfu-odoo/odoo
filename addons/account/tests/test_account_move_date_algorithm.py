@@ -237,7 +237,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
     @freezegun.freeze_time('2023-05-01')
     def test_caba_with_different_lock_dates(self):
         """
-        Test the date of the CABA move when reconciling a payment in case thelock dates
+        Test the date of the CABA move when reconciling a payment in case the lock dates
         are different between post and reconciliation time (caba move creation time).
         Ensure that user groups (accountant rights) do not matter.
         """

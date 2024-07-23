@@ -1327,7 +1327,7 @@ class AccountMoveLine(models.Model):
             if line.move_id.state != 'posted':
                 continue
             move = line.move_id
-            violated_lock_dates, user_lock_dates = move.company_id._get_lock_date_violations(
+            violated_lock_dates, exceptions, user_lock_dates = move.company_id._get_lock_date_violations(
                 move.date,
                 fiscalyear=False,
                 sale=False,
@@ -1340,6 +1340,9 @@ class AccountMoveLine(models.Model):
                 raise UserError(_("The operation is refused as it would impact an already issued tax statement. "
                                   "Please change the journal entry date or the following lock dates to proceed: %(lock_date_info)s.",
                                   lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates)))
+            # TODO: ?: gather moves per exception
+            for _date, _field, exception in exceptions:
+                exception.modified_move_ids = [Command.link(move.id)]
         return user_lock_dates
 
     def _check_reconciliation(self):

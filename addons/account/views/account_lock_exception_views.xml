@@ -40,6 +40,9 @@
                                     <field name="fiscalyear_lock_date" readonly="True" invisible="not fiscalyear_lock_date"/>
                                 </group>
                             </group>
+                            <div>
+                                <field name="modified_move_ids" widget='one2many'/>
+                            </div>
                         </div>
                     </sheet>
                     <chatter/>
@@ -47,27 +50,5 @@
             </field>
         </record>
 
-        <record id="view_account_lock_exception_tree" model="ir.ui.view">
-            <field name="name">account.lock_exception.tree</field>
-            <field name="model">account.lock_exception</field>
-            <field name="arch" type="xml">
-                <tree create="false"
-                      decoration-muted="state == 'revoked'">
-                    <field name="state" optional="hide"/>
-                    <field name="user_id" string="User Restriction"/>
-                    <field name="start_datetime"/>
-                    <field name="end_datetime"/>
-                    <field name="reason" optional="hide"/>
-                    <field name="sale_lock_date"/>
-                    <field name="purchase_lock_date"/>
-                    <field name="fiscalyear_lock_date"/>
-                    <field name="tax_lock_date"/>
-                    <field name="create_uid"/>
-                    <field name="create_uid"/>
-                    <button class="oe_highlight" name="action_reactivate" type="object" invisible="state == 'active'" string="Reactivate"/>
-                    <button class="oe_highlight" name="action_revoke" type="object" invisible="state != 'active'" string="Revoke"/>
-                </tree>
-            </field>
-        </record>
     </data>
 </odoo>

@@ -405,7 +405,7 @@ class TestTransferWizard(AccountTestInvoicingCommon):
         move.action_post()
 
         # Set the lock date
-        # (Purchse Lock Date not tested)
+        # (Purchase Lock Date not tested)
         move.company_id.write({
             'hard_lock_date': '2019-02-28',
             'fiscalyear_lock_date': '2019-02-28',

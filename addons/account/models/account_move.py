@@ -2093,7 +2093,7 @@ class AccountMove(models.Model):
     def _check_fiscal_lock_dates(self, user_lock_dates=None):
         for move in self:
             journal = move.journal_id
-            violated_lock_dates, user_lock_dates = move.company_id._get_lock_date_violations(
+            violated_lock_dates, exceptions, user_lock_dates = move.company_id._get_lock_date_violations(
                 move.date,
                 fiscalyear=True,
                 sale=journal and journal.type == 'sale',
@@ -2106,6 +2106,9 @@ class AccountMove(models.Model):
                 message = _("You cannot add/modify entries prior to and inclusive of: %(lock_date_info)s.",
                             lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates))
                 raise UserError(message)
+            # TODO: ?: gather moves per exception
+            for _date, _field, exception in exceptions:
+                exception.modified_move_ids = [Command.link(move.id)]
         return user_lock_dates
 
     @api.constrains('auto_post', 'invoice_date')
@@ -3244,7 +3247,7 @@ class AccountMove(models.Model):
                                          ('invoice_date', '!=', False)],
                                         limit=1)
                 if prev_move:
-                    invoice_date = self._get_accounting_date(prev_move.invoice_date, False, prev_move.journal_id)
+                    invoice_date = self._get_accounting_date(prev_move.invoice_date, False, record.journal_id)
                 record.invoice_date = invoice_date
 
     @api.onchange('quick_edit_total_amount', 'partner_id')
@@ -4210,6 +4213,7 @@ class AccountMove(models.Model):
         to_reverse = self.env['account.move']
         to_unlink = self.env['account.move']
         for move in self:
+            # TODO: what about tax lock date?
             lock_date = self.company_id._get_user_fiscal_lock_date(move.journal_id)
             if move.inalterable_hash or move.date <= lock_date:
                 to_reverse += move
