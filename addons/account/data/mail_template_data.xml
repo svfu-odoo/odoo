@@ -153,4 +153,23 @@
 </p>
         </template>
     </data>
+
+<template id="company_exception_view_entries" name="company_exception_view_entries">
+    <div>
+                BUTTON START
+                <button type="object"
+                   name="action_open_the_relevant_moves"
+                   icon="fa-list">
+                   View Entries
+                </button>
+                <a type="object"
+                   class="oe_link fw-bold"
+                   name="action_open_the_relevant_moves"
+                   icon="fa-list">
+                   View Entries
+                </a>
+                BUTTON END
+    </div>
+</template>
+
 </odoo>

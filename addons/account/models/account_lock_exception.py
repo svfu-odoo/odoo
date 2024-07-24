@@ -1,6 +1,7 @@
 from odoo import _, api, fields, models
 
 from odoo.tools import create_index
+from markupsafe import Markup
 
 
 class AccountLockException(models.Model):
@@ -114,16 +115,37 @@ class AccountLockException(models.Model):
                 tracking_value_ids.append([0, 0, tracking_values])
             end_datetime_string = _("until %s", exception.end_datetime) if exception.end_datetime else _("forever")
             reason_string = _(" for '%s'", exception.reason) if exception.reason else ""
+            random_action = self.env.ref('account.action_open_settings')
             company_chatter_message = _(
-                "%(exception)s for %(user)s valid %(end_datetime_string)s%(reason)s.",
+                "%(exception)s for %(user)s valid %(end_datetime_string)s%(reason)s.%(button)s / %(action)s",
                 exception=exception._get_html_link(title=_("Exception")),  # TODO: remove
                 user=exception.user_id.display_name if exception.user_id else _("everyone"),
                 end_datetime_string=end_datetime_string,
                 reason=reason_string,
+                button=Markup("""
+                <button type="object"
+                   name="action_open_the_relevant_moves"
+                   icon="fa-list">
+                   View Entries
+                </button>
+                <a type="object"
+                   class="oe_link fw-bold"
+                   name="action_open_the_relevant_moves"
+                   icon="fa-list">
+                   View Entries
+                </a>
+                """),
+                action=random_action._get_html_link(title=_("Action")),
             )
             company.sudo().message_post(
                 body=company_chatter_message,
                 tracking_value_ids=tracking_value_ids,
+            )
+            company.sudo().message_post_with_source(
+                "account.company_exception_view_entries",
+                render_values={
+                   },
+                # subtype_xmlid='mail.mt_note',
             )
         return exceptions
 
