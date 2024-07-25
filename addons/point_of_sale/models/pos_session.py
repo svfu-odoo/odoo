@@ -287,7 +287,7 @@ class PosSession(models.Model):
             violated_lock_dates = company._get_violated_lock_dates(start_date, True, journal)
             if violated_lock_dates:
                 raise ValidationError(_("You cannot create a session starting before: %(lock_date_info)s",
-                                        lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates)))
+                                        lock_date_info=self.env['res.company']._format_lock_dates(violated_lock_dates)))
 
     def _check_invoices_are_posted(self):
         unposted_invoices = self._get_closed_orders().sudo().with_company(self.company_id).account_move.filtered(lambda x: x.state != 'posted')

@@ -1345,7 +1345,7 @@ class AccountMoveLine(models.Model):
             if violated_lock_dates and line._affect_tax_report():
                 raise UserError(_("The operation is refused as it would impact an already issued tax statement. "
                                   "Please change the journal entry date or the following lock dates to proceed: %(lock_date_info)s.",
-                                  lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates)))
+                                  lock_date_info=self.env['res.company']._format_lock_dates(violated_lock_dates)))
         return user_lock_dates
 
     def _check_reconciliation(self):

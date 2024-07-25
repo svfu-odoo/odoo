@@ -592,10 +592,14 @@ class ResCompany(models.Model):
         return locks, user_lock_dates
 
     @api.model
-    def _get_lock_date_violations_string(self, lock_date_violations):
+    def _format_lock_dates(self, lock_dates):
+        """Format a list of lock dates as a string.
+        :param lock_date_violations: list of tuple (lock_date, lock_date_field)
+        :return: a (localized) string listing all the lock date fields and their values
+        """
         return format_list(self.env,
                            [f"{self.fields_get([field])[field]['string']} ({format_date(self.env, lock_date)})"
-                            for lock_date, field in sorted(lock_date_violations)])
+                            for lock_date, field in sorted(lock_dates)])
 
     def _get_violated_lock_dates(self, accounting_date, has_tax, journal, user_lock_dates=None):
         """Get all the lock dates affecting the current accounting_date.

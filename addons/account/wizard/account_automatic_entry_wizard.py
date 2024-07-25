@@ -131,7 +131,7 @@ class AutomaticEntryWizard(models.TransientModel):
             )
             if violated_lock_dates:
                 raise ValidationError(_("The date selected is protected by: %(lock_date_info)s.",
-                                        lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates)))
+                                        lock_date_info=self.env['res.company']._format_lock_dates(violated_lock_dates)))
 
     @api.model
     def default_get(self, fields):

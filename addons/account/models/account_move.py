@@ -2110,7 +2110,7 @@ class AccountMove(models.Model):
             )
             if violated_lock_dates:
                 message = _("You cannot add/modify entries prior to and inclusive of: %(lock_date_info)s.",
-                            lock_date_info=self.env['res.company']._get_lock_date_violations_string(violated_lock_dates))
+                            lock_date_info=self.env['res.company']._format_lock_dates(violated_lock_dates))
                 raise UserError(message)
         return user_lock_dates
 
@@ -4902,7 +4902,7 @@ class AccountMove(models.Model):
             tax_lock_date_message = _(
                 "The date is being set prior to: %(lock_date_info)s. "
                 "The Journal Entry will be accounted on %(invoice_date)s upon posting.",
-                lock_date_info=self.env['res.company']._get_lock_date_violations_string(lock_dates),
+                lock_date_info=self.env['res.company']._format_lock_dates(lock_dates),
                 invoice_date=format_date(self.env, invoice_date))
             return tax_lock_date_message
         return False
