@@ -52,7 +52,7 @@ class AccountLockException(models.Model):
 
     revocation_datetime = fields.Datetime(
         'Revocation Date',
-        help="The date / time when the exception was last revoked."
+        help="The date / time when the exception was last revoked.",
     )
 
     # Lock date fields; c.f. res.company
@@ -61,22 +61,22 @@ class AccountLockException(models.Model):
 
     fiscalyear_lock_date = fields.Date(
         string="Everyone Lock Date",
-        help="The date the Everyone Lock Date is set to by this exception. If no date is set the lock date is not changed."
+        help="The date the Everyone Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
 
     tax_lock_date = fields.Date(
         string="Tax Return Lock Date",
-        help="The date the Tax Lock Date is set to by this exception. If no date is set the lock date is not changed."
+        help="The date the Tax Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
 
     sale_lock_date = fields.Date(
         string='Lock Sales',
-        help="The date the Sale Lock Date is set to by this exception. If no date is set the lock date is not changed."
+        help="The date the Sale Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
 
     purchase_lock_date = fields.Date(
         string='Lock Purchases',
-        help="The date the Purchase Lock Date is set to by this exception. If no date is set the lock date is not changed."
+        help="The date the Purchase Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
 
     def init(self):

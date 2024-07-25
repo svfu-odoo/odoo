@@ -561,13 +561,13 @@ class ResCompany(models.Model):
         """
         self.ensure_one()
         locks = []
-        if not user_lock_dates:
+        if user_lock_dates is None:
             user_lock_dates = {}
 
         if not accounting_date:
             return locks, user_lock_dates
 
-        company_user_lock_dates = (user_lock_dates or {}).setdefault(self, {})
+        company_user_lock_dates = user_lock_dates.setdefault(self, {})
         soft_lock_date_fields_to_check = [
             # (field, "to check")
             ('fiscalyear_lock_date', fiscalyear),
