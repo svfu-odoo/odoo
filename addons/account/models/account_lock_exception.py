@@ -1,6 +1,7 @@
 from odoo import _, api, fields, models
 
 from odoo.tools import create_index
+from odoo.addons.account.models.company import SOFT_LOCK_DATE_FIELDS
 
 
 class AccountLockException(models.Model):
@@ -81,7 +82,7 @@ class AccountLockException(models.Model):
     def init(self):
         super().init()
         create_index(self.env.cr,
-                     indexname='account_lock_exception_id_company_id_idx',
+                     indexname='account_lock_exception_company_id_start_datetime_end_datetime_idx',
                      tablename=self._table,
                      expressions=['company_id', 'start_datetime', 'end_datetime'])
 
@@ -94,16 +95,7 @@ class AccountLockException(models.Model):
         exceptions = super().create(vals_list)
         for exception in exceptions:
             company = exception.company_id
-            changed_locks = [
-                 (field, exception[field])
-                 for field in [
-                    'fiscalyear_lock_date',
-                    'tax_lock_date',
-                    'sale_lock_date',
-                    'purchase_lock_date',
-                 ]
-                 if exception[field]
-               ]
+            changed_locks = [(field, exception[field]) for field in SOFT_LOCK_DATE_FIELDS if exception[field]]
             tracking_value_ids = []
             for field, value in changed_locks:
                 field_info = exception.fields_get([field])[field]

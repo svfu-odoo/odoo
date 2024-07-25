@@ -36,6 +36,18 @@ PEPPOL_LIST = [
 
 INTEGRITY_HASH_BATCH_SIZE = 1000
 
+SOFT_LOCK_DATE_FIELDS = [
+    'fiscalyear_lock_date',
+    'tax_lock_date',
+    'sale_lock_date',
+    'purchase_lock_date',
+]
+
+LOCK_DATE_FIELDS = [
+    *SOFT_LOCK_DATE_FIELDS,
+    'hard_lock_date',
+]
+
 
 class ResCompany(models.Model):
     _name = "res.company"
@@ -463,7 +475,6 @@ class ResCompany(models.Model):
         """
         self.ensure_one()
         soft_lock_date = self[soft_lock_date_field]
-        exception = None
         if soft_lock_date:
             exception = self.env['account.lock_exception'].search(
                 [
@@ -492,7 +503,7 @@ class ResCompany(models.Model):
         return soft_lock_date
 
     def _get_fiscal_lock_date(self, journal):
-        """Get the fiscal lock date for this company ignoring user exceptions"""
+        """Get the fiscal lock date for this company (depending on the affected journal) ignoring user exceptions"""
         self.ensure_one()
         lock = max(self.max_fiscalyear_lock_date, self.max_hard_lock_date)
         if journal:
