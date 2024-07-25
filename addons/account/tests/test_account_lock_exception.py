@@ -100,8 +100,11 @@ class TestAccountLockException(AccountTestInvoicingCommon):
     def test_user_exception_branch(self):
         """
         Test that the locking and exception mechanism works correctly in company hierarchies.
-            * Locks in the parent lock the branch.
+            * A lock in the branch does not lock the parent.
+            * A lock in the parent also locks the branch.
             * An exception in the branch does not matter for the lock in the parent.
+            * Let both parent and branch be locked.
+              To make changes in the locked period in the brranch we need exceptions in both companies.
         """
 
         root_company = self.company_data['company']
@@ -111,12 +114,12 @@ class TestAccountLockException(AccountTestInvoicingCommon):
 
         for lock_date_field, move_type in self.soft_lock_date_info:
             with self.subTest(lock_date_field=lock_date_field, move_type=move_type), self.cr.savepoint() as sp:
-                # create a move in the branch
+                # Create a move in the branch
                 branch_move = self.init_invoice(
                     move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a, company=branch,
                 )
 
-                # create a move in the parent company
+                # Create a move in the parent company
                 root_move = self.init_invoice(
                     move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a, company=root_company,
                 )
