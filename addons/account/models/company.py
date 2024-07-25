@@ -394,16 +394,36 @@ class ResCompany(models.Model):
         return action
 
     def _validate_locks(self, values):
-        fiscalyear_lock_date_string = values.get('fiscalyear_lock_date')
-        hard_lock_date_string = values.get('hard_lock_date')
-        sale_lock_date_string = values.get('sale_lock_date')
-        purchase_lock_date_string = values.get('purchase_lock_date')
+        """Check that the lock date changes are valid.
+        * Check that we do not decrease or remove any lock dates.
+        * Check there are no unreconciled bank statement lines in the period we want to lock.
+        * Check there are no unhashed journal entires in the period we want to lock.
+        :param vals: The values passed to the write method.
+        """
+        new_locks = {
+            field: fields.Date.from_string(values[field])
+            for field in LOCK_DATE_FIELDS
+            if field in values
+        }
 
+        for company in self:
+            for lock_date_field, lock_date in new_locks.items():
+                if not company[lock_date_field]:
+                    continue
+                if not lock_date:
+                    raise UserError(_("Lock Dates cannot be removed."))
+                if lock_date < company[lock_date_field]:
+                    raise UserError(_("Any new Lock Date must be posterior (or equal) to the previous one."))
+
+        fiscalyear_lock_date = new_locks.get('fiscalyear_lock_date', None)
+        hard_lock_date = new_locks.get('hard_lock_date', None)
+        sale_lock_date = new_locks.get('sale_lock_date', None)
+        purchase_lock_date = new_locks.get('purchase_lock_date', None)
         fiscal_lock_date = None
-        if fiscalyear_lock_date_string or hard_lock_date_string:
-            fiscal_lock_date = max(fields.Date.from_string(fiscalyear_lock_date_string) or date.min,
-                                   fields.Date.from_string(hard_lock_date_string) or date.min)
+        if fiscalyear_lock_date or hard_lock_date:
+            fiscal_lock_date = max(fiscalyear_lock_date or date.min, hard_lock_date or date.min)
 
+        # Check for unreconciled bank statement lines
         if fiscal_lock_date:
             unreconciled_statement_lines = self.env['account.bank.statement.line'].search([
                 ('company_id', 'child_of', self.ids),
@@ -417,10 +437,8 @@ class ResCompany(models.Model):
                 action_error = self._get_fiscalyear_lock_statement_lines_redirect_action(unreconciled_statement_lines)
                 raise RedirectWarning(error_msg, action_error, _('Show Unreconciled Bank Statement Line'))
 
-        if fiscal_lock_date or sale_lock_date_string or purchase_lock_date_string:
-            sale_lock_date = fields.Date.from_string(sale_lock_date_string)
-            purchase_lock_date = fields.Date.from_string(purchase_lock_date_string)
-
+        # Check for unhashed journal entries
+        if fiscal_lock_date or sale_lock_date or purchase_lock_date:
             # Check if there are still unhashed journal entries
             # Only check journals that have at least one hashed entry.
             journals_to_check = self.env['account.journal']

@@ -133,17 +133,25 @@ class AccountLockException(models.Model):
                 record.state = 'revoked'
 
     def _get_audit_trail_during_exception_domain(self):
+        self.ensure_one()
+
         now = fields.Datetime.now()
         revocation_datetime = self.revocation_datetime if self.state == 'revoked' else None
         end_datetime = min(self.end_datetime or now, revocation_datetime or now)
 
-        return [
+        domain = [
             ('model', '=', 'account.move'),
             ('account_audit_log_activated', '=', True),
             ('message_type', '=', 'notification'),
+            ('record_company_id', 'child_of', self.company_id.id),
             ('date', '>=', self.start_datetime),
             ('date', '<=', end_datetime),
         ]
+
+        if self.user_id:
+            domain.append(('create_uid', '=', self.user_id.id))
+
+        return domain
 
     def action_show_audit_trail_during_exception(self):
         self.ensure_one()
