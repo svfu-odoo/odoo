@@ -7,13 +7,13 @@
             <field name="arch" type="xml">
                 <form string="Account Lock Exception">
                     <header>
-                        <field name="state" widget="statusbar" statusbar_visible="active,revoked"/>
-                        <button string="Reactivate" invisible="state == 'active'" class="btn-secondary"
-                                type="object" name="action_reactivate"/>
+                        <field name="active" invisible="True"/>
+                        <field name="state" widget="statusbar" statusbar_visible="active,expired" invisible="not active"/>
                         <button string="Revoke" invisible="state != 'active'" class="btn-secondary"
                                 type="object" name="action_revoke"/>
                     </header>
                     <sheet>
+                        <widget name="web_ribbon" title="Revoked" bg_color="bg-danger" invisible="active"/>
                         <div class="oe_button_box" name="button_box">
                             <button class="oe_stat_button" name="action_show_audit_trail_during_exception"
                                     type="object" icon="fa-bars">
@@ -35,7 +35,7 @@
                                     <field name="user_id" readonly="True" invisible="not user_id" nolabel="1"/>
                                     <span invisible="user_id">everyone</span>
                                     <field name="reason" readonly="True" invisible="not reason"/>
-                                    <field name="start_datetime" readonly="True"/>
+                                    <field name="create_date" readonly="True"/>
                                     <field name="end_datetime" readonly="True"/>
                                 </group>
                                 <group>

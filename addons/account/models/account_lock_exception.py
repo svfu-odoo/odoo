@@ -1,6 +1,8 @@
-from odoo import _, api, fields, models
-
+from odoo import _, api, fields, models, Command
 from odoo.tools import create_index
+from odoo.tools.misc import format_date
+from odoo.exceptions import UserError
+
 from odoo.addons.account.models.company import SOFT_LOCK_DATE_FIELDS
 
 
@@ -9,17 +11,17 @@ class AccountLockException(models.Model):
     _description = "Account Lock Exception"
     _inherit = ['mail.thread.main.attachment', 'mail.activity.mixin']
 
-    state = fields.Selection([
+    active = fields.Boolean('Active', default=True, tracking=True)
+    state = fields.Selection(
+        selection=[
          ('active', 'Active'),
          ('revoked', 'Revoked'),
+         ('expired', 'Expired'),
         ],
         string="State",
-        tracking=True,
-        default='active',
-        required=True,
-        readonly=True,
+        compute='_compute_state',
+        search='_search_state'
     )
-
     company_id = fields.Many2one(
         'res.company',
         string='Company',
@@ -27,53 +29,35 @@ class AccountLockException(models.Model):
         readonly=True,
         default=lambda self: self.env.company,
     )
-
     # An exception w/o user_id is an exception for everyone
     user_id = fields.Many2one(
         'res.users',
         string='User',
         default=lambda self: self.env.user,
     )
-
     reason = fields.Char(
         string='Reason',
     )
-
-    start_datetime = fields.Datetime(
-        'Start Date',
-        default=fields.Datetime.now,
-        required=True,
-    )
-
     # An exception without `end_datetime` is valid forever
     end_datetime = fields.Datetime(
         'End Date',
     )
 
-    revocation_datetime = fields.Datetime(
-        'Revocation Date',
-        help="The date / time when the exception was last revoked.",
-    )
-
     # Lock date fields; c.f. res.company
     # An unset lock date field means the exception does not change this field.
     # (It is not possible to remove a lock date completely).
-
     fiscalyear_lock_date = fields.Date(
         string="Everyone Lock Date",
         help="The date the Everyone Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
-
     tax_lock_date = fields.Date(
         string="Tax Return Lock Date",
         help="The date the Tax Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
-
     sale_lock_date = fields.Date(
         string='Lock Sales',
         help="The date the Sale Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
-
     purchase_lock_date = fields.Date(
         string='Lock Purchases',
         help="The date the Purchase Lock Date is set to by this exception. If no date is set the lock date is not changed.",
@@ -81,14 +65,54 @@ class AccountLockException(models.Model):
 
     def init(self):
         super().init()
-        create_index(self.env.cr,
-                     indexname='account_lock_exception_company_id_start_datetime_end_datetime_idx',
-                     tablename=self._table,
-                     expressions=['company_id', 'start_datetime', 'end_datetime'])
+        create_index(
+            self.env.cr,
+            indexname='account_lock_exception_company_id_end_datetime_idx',
+            tablename=self._table,
+            expressions=['company_id', 'end_datetime'],
+        )
 
     def _compute_display_name(self):
         for record in self:
             record.display_name = _("Lock Date Exception %s", record.id)
+
+    @api.depends('active', 'end_datetime')
+    def _compute_state(self):
+        for record in self:
+            if not record.active:
+                record.state = 'revoked'
+            elif record.end_datetime and record.end_datetime < self.env.cr.now():
+                record.state = 'expired'
+            else:
+                record.state = 'active'
+
+    def _search_state(self, operator, value):
+        if operator not in ['=', '!='] or value not in ['revoked', 'expired', 'active']:
+            raise UserError(_('Operation not supported'))
+
+        normal_domain_for_equals = []
+        if value == 'revoked':
+            normal_domain_for_equals = [
+                ('active', '=', False),
+            ]
+        elif value == 'expired':
+            normal_domain_for_equals = [
+                '&',
+                    ('active', '=', True),
+                    ('end_datetime', '<', self.env.cr.now()),
+            ]
+        elif value == 'active':
+            normal_domain_for_equals = [
+                '&',
+                    ('active', '=', True),
+                    '|',
+                        ('end_datetime', '=', None),
+                        ('end_datetime', '>=', self.env.cr.now()),
+            ]
+        if operator == '=':
+            return normal_domain_for_equals
+        else:
+            return ['!'] + normal_domain_for_equals
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -102,9 +126,9 @@ class AccountLockException(models.Model):
                 tracking_values = self.env['mail.tracking.value']._create_tracking_values(
                     company[field], value, field, field_info, exception
                 )
-                tracking_value_ids.append([0, 0, tracking_values])
+                tracking_value_ids.append(Command.create(tracking_values))
             # In case there is no explicit end datetime "forever" is implied by not mentioning an end datetime
-            end_datetime_string = _(" valid until %s", exception.end_datetime) if exception.end_datetime else ""
+            end_datetime_string = _(" valid until %s", format_date(self.env, exception.end_datetime)) if exception.end_datetime else ""
             reason_string = _(" for '%s'", exception.reason) if exception.reason else ""
             company_chatter_message = _(
                 "%(exception)s for %(user)s%(end_datetime_string)s%(reason)s.",
@@ -119,37 +143,29 @@ class AccountLockException(models.Model):
             )
         return exceptions
 
-    def action_reactivate(self):
-        """Resets a not 'active' exception back to 'active'."""
-        for record in self:
-            if record.state != 'active':
-                record.state = 'active'
-
     def action_revoke(self):
         """Revokes an active exception."""
         for record in self:
             if record.state == 'active':
-                record.revocation_datetime = fields.Datetime.now()
-                record.state = 'revoked'
+                record_sudo = record.sudo()
+                record_sudo.active = False
+                record_sudo.end_datetime = fields.Datetime.now()
 
     def _get_audit_trail_during_exception_domain(self):
         self.ensure_one()
-
-        now = fields.Datetime.now()
-        revocation_datetime = self.revocation_datetime if self.state == 'revoked' else None
-        end_datetime = min(self.end_datetime or now, revocation_datetime or now)
 
         domain = [
             ('model', '=', 'account.move'),
             ('account_audit_log_activated', '=', True),
             ('message_type', '=', 'notification'),
             ('record_company_id', 'child_of', self.company_id.id),
-            ('date', '>=', self.start_datetime),
-            ('date', '<=', end_datetime),
+            ('date', '>=', self.create_date),
         ]
 
         if self.user_id:
             domain.append(('create_uid', '=', self.user_id.id))
+        if self.end_datetime:
+            domain.append(('date', '<=', self.end_datetime))
 
         return domain
 

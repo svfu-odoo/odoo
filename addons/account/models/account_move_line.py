@@ -1632,8 +1632,7 @@ class AccountMoveLine(models.Model):
         line_to_write = self
         vals = self._sanitize_vals(vals)
 
-        tax_lines = self.env['account.move.line']
-        fiscal_moves = self.env['account.move']
+        user_lock_dates = {}
         for line in self:
             if not any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in vals):
                 line_to_write -= line
@@ -1644,18 +1643,15 @@ class AccountMoveLine(models.Model):
 
             # Check the lock date.
             if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['fiscal']):
-                fiscal_moves |= line.move_id
+                line.move_id._check_fiscal_lock_dates(user_lock_dates)
 
             # Check the tax lock date.
             if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['tax']):
-                tax_lines |= line
+                line._check_tax_lock_date(user_lock_dates)
 
             # Check the reconciliation.
             if any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['reconciliation']):
                 line._check_reconciliation()
-
-        tax_lines._check_tax_lock_date()
-        fiscal_moves._check_fiscal_lock_dates()
 
         move_container = {'records': self.move_id}
         with self.move_id._check_balanced(move_container),\
