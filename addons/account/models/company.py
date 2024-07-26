@@ -437,7 +437,7 @@ class ResCompany(models.Model):
                     'type': 'ir.actions.act_window',
                     'domain': [('id', 'in', draft_entries.ids)],
                     'search_view_id': [self.env.ref('account.view_account_move_filter').id, 'search'],
-                    'views': [[self.env.ref('account.view_move_tree').id, 'list'], [self.env.ref('account.view_move_form').id, 'form']],
+                    'views': [[self.env.ref('account.view_move_tree_multi_edit').id, 'list'], [self.env.ref('account.view_move_form').id, 'form']],
                 }
                 raise RedirectWarning(error_msg, action_error, _('Show draft entries'))
 
