@@ -169,7 +169,7 @@ class TestCompanyBranch(AccountTestInvoicingCommon):
                         move_type, amounts=[100], taxes=self.root_company.account_sale_tax_id,
                         invoice_date=invoice_date, post=True, company=company,
                     )
-                    self.assertEqual(move.date, fields.Date.from_string(invoice_date))
+                    self.assertEqual(move.date, fields.Date.to_date(invoice_date))
                     with freeze_time('4000-01-01'):  # ensure we don't lock in the future
                         self.root_company[lock] = root_lock
                         self.branch_a[lock] = branch_lock

@@ -112,7 +112,7 @@ class AutomaticEntryWizard(models.TransientModel):
             if record.action == 'change_period':
                 for aml in record.move_line_ids:
                     move = aml.move_id
-                    lock_date_message = aml.move_id._get_lock_date_message(aml.date, move._affect_tax_report(), move.journal_id)
+                    lock_date_message = move._get_lock_date_message(aml.date, move._affect_tax_report(), move.journal_id)
                     if lock_date_message:
                         record.lock_date_message = lock_date_message
                         break

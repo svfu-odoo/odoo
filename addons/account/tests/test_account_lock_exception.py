@@ -44,18 +44,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception to make the move editable (for the current user)
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_move_edit_multi_user',
                 })
                 move.button_draft()
@@ -75,18 +73,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add a global exception to make the move editable for everyone
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company.id,
                     'user_id': False,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_global_exception_move_edit_multi_user',
                 })
 
@@ -125,7 +121,7 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 )
 
                 # Lock the branch
-                branch[lock_date_field] = fields.Date.from_string('2020-01-01')
+                branch[lock_date_field] = fields.Date.to_date('2020-01-01')
 
                 # The branch_move is locked while the root_move is not
                 with self.assertRaises(UserError), self.cr.savepoint():
@@ -134,20 +130,18 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 root_move.action_post()
 
                 # Add an exception in the branch to make the branch_move editable (for the current user)
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': branch.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_branch branch exception',
                 })
                 branch_move.button_draft()
                 branch_move.action_post()
 
                 # Lock the parent company
-                root_company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                root_company[lock_date_field] = fields.Date.to_date('2020-01-01')
 
                 # Check that both moves are locked now (the branch exception alone is insufficient)
                 for move in [branch_move, root_move]:
@@ -155,13 +149,11 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                         move.button_draft()
 
                 # Add an exception in the parent company to make both moves editable (for the current user)
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': root_company.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_branch root_company exception',
                 })
                 for move in [branch_move, root_move]:
@@ -178,18 +170,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             with self.subTest(lock_date_field=lock_date_field, move_type=move_type), self.cr.savepoint() as sp:
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception for another company
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company_data_2['company'].id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_move_edit_multi_user',
                 })
 
@@ -208,18 +198,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception before the lock date but not before the date of the test_invoice
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2016-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2016-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_move_edit_multi_user',
                 })
 
@@ -238,47 +226,18 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception to make the move editable (for the current user)
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now - timedelta(hours=24),
-                    'end_datetime': now - timedelta(milliseconds=1),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'create_date': fields.Datetime.now() - timedelta(hours=24),
+                    'end_datetime': fields.Datetime.now() - timedelta(milliseconds=1),
                     'reason': 'test_expired_exception',
-                })
-                with self.assertRaises(UserError), self.cr.savepoint():
-                    move.button_draft()
-
-                sp.close()  # Rollback to ensure all subtests start in the same situation
-
-    def test_future_exception(self):
-        """
-        Test that the exception does not work if we have not reached the `start_datetime` yet.
-        """
-        for lock_date_field, move_type in self.soft_lock_date_info:
-            with self.subTest(lock_date_field=lock_date_field, move_type=move_type), self.cr.savepoint() as sp:
-                move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
-
-                # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
-                with self.assertRaises(UserError), self.cr.savepoint():
-                    move.button_draft()
-
-                # Add an exception to make the move editable (for the current user)
-                now = fields.Datetime.now()
-                self.env['account.lock_exception'].create({
-                    'company_id': self.company.id,
-                    'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now + timedelta(milliseconds=1),
-                    'end_datetime': now + timedelta(hours=24),
-                    'reason': 'test_future_exception',
                 })
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
@@ -291,18 +250,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception to make the move editable (for the current user)
-                now = fields.Datetime.now()
                 exception = self.env['account.lock_exception'].create({
                     'company_id': self.company.id,
                     'user_id': self.env.user.id,
-                    lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_move_edit_multi_user',
                 })
                 move.button_draft()
@@ -326,18 +283,16 @@ class TestAccountLockException(AccountTestInvoicingCommon):
             with self.subTest(lock_date_field=lock_date_field, move_type=move_type), self.cr.savepoint() as sp:
                 move = self.init_invoice(move_type, invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
                 # Lock the move
-                self.company[lock_date_field] = fields.Date.from_string('2020-01-01')
+                self.company[lock_date_field] = fields.Date.to_date('2020-01-01')
                 with self.assertRaises(UserError), self.cr.savepoint():
                     move.button_draft()
 
                 # Add an exception for a different lock date field
-                now = fields.Datetime.now()
                 self.env['account.lock_exception'].create({
                     'company_id': self.company_data_2['company'].id,
                     'user_id': self.env.user.id,
-                    exception_lock_date_field: fields.Date.from_string('2010-01-01'),
-                    'start_datetime': now,
-                    'end_datetime': now + timedelta(hours=24),
+                    exception_lock_date_field: fields.Date.to_date('2010-01-01'),
+                    'end_datetime': fields.Datetime.now() + timedelta(hours=24),
                     'reason': 'test_user_exception_wrong_field',
                 })
 
@@ -354,17 +309,15 @@ class TestAccountLockException(AccountTestInvoicingCommon):
         in_move = self.init_invoice('in_invoice', invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
         out_move = self.init_invoice('out_invoice', invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
-        self.company.hard_lock_date = fields.Date.from_string('2020-01-01')
+        self.company.hard_lock_date = fields.Date.to_date('2020-01-01')
 
         # Create exceptions for all lock date fields except the hard lock date
-        now = fields.Datetime.now()
         self.env['account.lock_exception'].create([
             {
             'company_id': self.company_data_2['company'].id,
             'user_id': self.env.user.id,
-            lock_date_field: fields.Date.from_string('2010-01-01'),
-            'start_datetime': now,
-            'end_datetime': now + timedelta(hours=24),
+            lock_date_field: fields.Date.to_date('2010-01-01'),
+            'end_datetime': fields.Datetime.now() + timedelta(hours=24),
             'reason': f'test_hard_lock_ignores_exceptions {lock_date_field}',
             }
             for lock_date_field in SOFT_LOCK_DATE_FIELDS

@@ -135,8 +135,7 @@ class account_journal(models.Model):
                     SELECT move.journal_id,
                            move.sequence_prefix
                       FROM account_move move
-                      JOIN account_journal journal
-                        ON move.journal_id = journal.id
+                      JOIN account_journal journal ON move.journal_id = journal.id
                      WHERE move.journal_id = ANY(%(journal_ids)s)
                        AND move.company_id = %(company_id)s
                        AND move.made_sequence_gap = TRUE

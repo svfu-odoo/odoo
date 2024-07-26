@@ -273,14 +273,14 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                 )
                 payment = self._create_payment('2023-01-30', amount=invoice.amount_total)
 
-                self.env.company.sudo().sale_lock_date = fields.Date.from_string('2023-02-01')
+                self.env.company.sudo().sale_lock_date = fields.Date.to_date('2023-02-01')
                 (invoice + payment.move_id).action_post()
                 self.assertRecordValues([invoice, payment.move_id], [
-                    {'date': fields.Date.from_string('2023-02-28')},
-                    {'date': fields.Date.from_string('2023-01-30')},
+                    {'date': fields.Date.to_date('2023-02-28')},
+                    {'date': fields.Date.to_date('2023-01-30')},
                 ])
 
-                self.env.company.sudo().sale_lock_date = fields.Date.from_string('2023-03-01')
+                self.env.company.sudo().sale_lock_date = fields.Date.to_date('2023-03-01')
                 (invoice + payment.move_id).line_ids\
                     .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
                     .reconcile()
@@ -292,6 +292,6 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                     'type': 'general',
                 }])
                 self.assertRecordValues(caba_move, [{
-                    'date': fields.Date.from_string('2023-02-28'),
+                    'date': fields.Date.to_date('2023-02-28'),
                 }])
                 sp.close()  # Rollback to ensure all subtests start in the same situation
