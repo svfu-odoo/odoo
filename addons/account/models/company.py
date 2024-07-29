@@ -395,25 +395,12 @@ class ResCompany(models.Model):
 
     def _validate_locks(self, values):
         """Check that the lock date changes are valid.
-        * Check that we do not decrease or remove any lock dates.
+        * Check that we do not decrease or remove the hard lock dates.
         * Check there are no unreconciled bank statement lines in the period we want to lock.
         * Check there are no unhashed journal entires in the period we want to lock.
         :param vals: The values passed to the write method.
         """
-        new_locks = {
-            field: fields.Date.to_date(values[field])
-            for field in LOCK_DATE_FIELDS
-            if field in values
-        }
-
-        for company in self:
-            for lock_date_field, lock_date in new_locks.items():
-                if not company[lock_date_field]:
-                    continue
-                if not lock_date:
-                    raise UserError(_("Lock Dates cannot be removed."))
-                if lock_date < company[lock_date_field]:
-                    raise UserError(_("Any new Lock Date must be posterior (or equal) to the previous one."))
+        new_locks = {field: fields.Date.to_date(values[field])for field in LOCK_DATE_FIELDS if field in values}
 
         fiscalyear_lock_date = new_locks.get('fiscalyear_lock_date')
         hard_lock_date = new_locks.get('hard_lock_date')
@@ -422,6 +409,15 @@ class ResCompany(models.Model):
         fiscal_lock_date = None
         if fiscalyear_lock_date or hard_lock_date:
             fiscal_lock_date = max(fiscalyear_lock_date or date.min, hard_lock_date or date.min)
+
+        if 'hard_lock_date' in new_locks:
+            for company in self:
+                if not company.hard_lock_date:
+                    continue
+                if not hard_lock_date:
+                    raise UserError(_("The Hard Lock Date cannot be removed."))
+                if hard_lock_date < company.hard_lock_date:
+                    raise UserError(_("A new Hard Lock Date must be posterior (or equal) to the previous one."))
 
         if hard_lock_date:
             draft_entries = self.env['account.move'].search([
