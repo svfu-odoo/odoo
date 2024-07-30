@@ -284,9 +284,8 @@ class AccountMove(models.Model):
         '''Mark the edi.document related to this move to be canceled.
         '''
         to_cancel_documents = self.env['account.edi.document']
-        user_lock_dates = {}
         for move in self:
-            move._check_fiscal_lock_dates(user_lock_dates)
+            move._check_fiscal_lock_dates()
             is_move_marked = False
             for doc in move.edi_document_ids:
                 move_applicability = doc.edi_format_id._get_move_applicability(move)

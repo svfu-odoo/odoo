@@ -56,34 +56,34 @@ class ResCompany(models.Model):
     fiscalyear_last_day = fields.Integer(default=31, required=True)
     fiscalyear_last_month = fields.Selection(MONTH_SELECTION, default='12', required=True)
     fiscalyear_lock_date = fields.Date(
-        string="Everyone Lock Date",
+        string="Global Lock Date",
         tracking=True,
         help="No users can edit accounts prior to and inclusive of this date."
              " Use it for fiscal year locking for example.")
-    max_fiscalyear_lock_date = fields.Date(compute='_compute_max_fiscalyear_lock_date', recursive=True)
+    max_fiscalyear_lock_date = fields.Date(compute='_compute_max_fiscalyear_lock_date')
     tax_lock_date = fields.Date(
         string="Tax Return Lock Date",
         tracking=True,
         help="No users can edit journal entries related to a tax prior and inclusive of this date.")
-    max_tax_lock_date = fields.Date(compute='_compute_max_tax_lock_date', recursive=True)
+    max_tax_lock_date = fields.Date(compute='_compute_max_tax_lock_date')
     sale_lock_date = fields.Date(
         string='Sales Lock Date',
         tracking=True,
         help='Prevents creation and modification of entries in sales journals up to the defined date inclusive.'
     )
-    max_sale_lock_date = fields.Date(compute='_compute_max_sale_lock_date', recursive=True)
+    max_sale_lock_date = fields.Date(compute='_compute_max_sale_lock_date')
     purchase_lock_date = fields.Date(
         string='Purchase Lock date',
         tracking=True,
         help='Prevents creation and modification of entries in purchase journals up to the defined date inclusive.'
     )
-    max_purchase_lock_date = fields.Date(compute='_compute_max_purchase_lock_date', recursive=True)
+    max_purchase_lock_date = fields.Date(compute='_compute_max_purchase_lock_date')
     hard_lock_date = fields.Date(
         string='Hard Lock Date',
         tracking=True,
-        help='Like the "Everyone Lock Date", but no exceptions are possible.'
+        help='Like the "Global Lock Date", but no exceptions are possible.'
     )
-    max_hard_lock_date = fields.Date(compute='_compute_max_hard_lock_date', recursive=True)
+    max_hard_lock_date = fields.Date(compute='_compute_max_hard_lock_date')
     transfer_account_id = fields.Many2one('account.account',
         check_company=True,
         domain="[('reconcile', '=', True), ('account_type', '=', 'asset_current'), ('deprecated', '=', False)]", string="Inter-Banks Transfer Account", help="Intermediary account used when moving money from a liqity account to another")
@@ -305,27 +305,27 @@ class ResCompany(models.Model):
             if html:
                 company.invoice_terms_html = html
 
-    @api.depends('fiscalyear_lock_date', 'parent_id.max_fiscalyear_lock_date')
+    @api.depends('fiscalyear_lock_date', 'parent_ids.fiscalyear_lock_date')
     def _compute_max_fiscalyear_lock_date(self):
         for company in self:
             company.max_fiscalyear_lock_date = max(c.fiscalyear_lock_date or date.min for c in company.sudo().parent_ids)
 
-    @api.depends('tax_lock_date', 'parent_id.max_tax_lock_date')
+    @api.depends('tax_lock_date', 'parent_ids.tax_lock_date')
     def _compute_max_tax_lock_date(self):
         for company in self:
             company.max_tax_lock_date = max(c.tax_lock_date or date.min for c in company.sudo().parent_ids)
 
-    @api.depends('sale_lock_date', 'parent_id.max_sale_lock_date')
+    @api.depends('sale_lock_date', 'parent_ids.sale_lock_date')
     def _compute_max_sale_lock_date(self):
         for company in self:
             company.max_sale_lock_date = max(c.sale_lock_date or date.min for c in company.sudo().parent_ids)
 
-    @api.depends('purchase_lock_date', 'parent_id.max_purchase_lock_date')
+    @api.depends('purchase_lock_date', 'parent_ids.purchase_lock_date')
     def _compute_max_purchase_lock_date(self):
         for company in self:
             company.max_purchase_lock_date = max(c.purchase_lock_date or date.min for c in company.sudo().parent_ids)
 
-    @api.depends('hard_lock_date', 'parent_id.max_hard_lock_date')
+    @api.depends('hard_lock_date', 'parent_ids.hard_lock_date')
     def _compute_max_hard_lock_date(self):
         for company in self:
             company.max_hard_lock_date = max(c.hard_lock_date or date.min for c in company.sudo().parent_ids)
@@ -540,38 +540,34 @@ class ResCompany(models.Model):
     def _get_user_fiscal_lock_date(self, journal):
         """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions"""
         self.ensure_one()
-        lock = max(self._get_user_lock_date('fiscalyear_lock_date'), self.max_hard_lock_date)
+        lock = max(self.env.user.fiscalyear_lock_date, self.max_hard_lock_date)
         if journal:
             if journal.type == 'sale':
-                lock = max(self._get_user_lock_date('sale_lock_date'), lock)
+                lock = max(self.env.user.sale_lock_date, lock)
             elif journal.type == 'purchase':
-                lock = max(self._get_user_lock_date('purchase_lock_date'), lock)
+                lock = max(self.env.user.purchase_lock_date, lock)
         return lock
 
-    def _get_violated_soft_lock_date(self, soft_lock_date_field, date, user_lock_date=None):
+    def _get_violated_soft_lock_date(self, soft_lock_date_field, date):
         """
         Check whether `date` violates the lock date called `soft_lock_date_field`.
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
         :param date: We check whether this date is prior or equal to the lock date.
         :param user_lock_date: We can pass the user lock date directly to avoid (re-)computing it.
-        :return tuple ("violated lock date", "user lock date") where
-                  - "violated lock date" is the violated lock date as a date (or `None`);
-                    it is `None` in case there is no violation
-                  - "user lock date" is the user lock date (like returned by `_get_user_lock_date`) or `None`.
-                    Returning the user lock date in case we compute it avoids having to recompute it.
+        :return the violated lock date as a date (or `None`)
         """
         violated_date = None
         if not self:
-            return violated_date, user_lock_date
+            return violated_date
         self.ensure_one()
         regular_lock_date = self[f'max_{soft_lock_date_field}']
         if date <= regular_lock_date:
             violated_date = regular_lock_date
-            user_lock_date = user_lock_date or self._get_user_lock_date(soft_lock_date_field)
+            user_lock_date = self.env.user[soft_lock_date_field]
             violated_date = None if date > user_lock_date else user_lock_date
-        return violated_date, user_lock_date
+        return violated_date
 
-    def _get_lock_date_violations(self, accounting_date, fiscalyear=True, sale=True, purchase=True, tax=True, hard=True, user_lock_dates=None):
+    def _get_lock_date_violations(self, accounting_date, fiscalyear=True, sale=True, purchase=True, tax=True, hard=True):
         """Get all the lock dates affecting the current accounting_date.
         :param accounting_date:      The accounting date
         :param bool fiscalyear:      Whether we should check the `fiscalyear_lock_date`
@@ -579,21 +575,14 @@ class ResCompany(models.Model):
         :param bool purchase:        Whether we should check the `purchase_lock_date`
         :param bool tax:             Whether we should check the `tax_lock_date`
         :param bool hard:            Whether we should check the `hard_lock_date`
-        :param dict user_lock_dates: A dictionary (company -> lockdate field -> lockdate) to cache the user lock dates.
-                                     (Those can i.e. be obtained from `_get_user_lock_date`.)
-        :return: a tuple (lock_dates, user_lock_dates) where
-                   * lock_dates is a list of tuples containing the lock dates (not ordered chronologically).
-                   * user_lock_dates is (like) param user_lock_dates
+        :return: a list of tuples containing the lock dates (not ordered chronologically).
         """
         self.ensure_one()
         locks = []
-        if user_lock_dates is None:
-            user_lock_dates = {}
 
         if not accounting_date:
-            return locks, user_lock_dates
+            return locks
 
-        company_user_lock_dates = user_lock_dates.setdefault(self, {})
         soft_lock_date_fields_to_check = [
             # (field, "to check")
             ('fiscalyear_lock_date', fiscalyear),
@@ -604,9 +593,7 @@ class ResCompany(models.Model):
         for field, to_check in soft_lock_date_fields_to_check:
             if not to_check:
                 continue
-            violated_date, user_lock_date = self._get_violated_soft_lock_date(field, accounting_date, company_user_lock_dates.get(field, None))
-            if user_lock_date:
-                company_user_lock_dates[field] = user_lock_date
+            violated_date = self._get_violated_soft_lock_date(field, accounting_date)
             if violated_date:
                 locks.append((violated_date, field))
 
@@ -615,7 +602,7 @@ class ResCompany(models.Model):
             if accounting_date <= hard_lock_date:
                 locks.append((hard_lock_date, 'hard_lock_date'))
 
-        return locks, user_lock_dates
+        return locks
 
     @api.model
     def _format_lock_dates(self, lock_dates):
@@ -628,13 +615,11 @@ class ResCompany(models.Model):
             for lock_date, field in sorted(lock_dates)
         ])
 
-    def _get_violated_lock_dates(self, accounting_date, has_tax, journal, user_lock_dates=None):
+    def _get_violated_lock_dates(self, accounting_date, has_tax, journal):
         """Get all the lock dates affecting the current accounting_date.
         :param accounting_date: The accounting date
         :param has_tax: If any taxes are involved in the lines of the invoice
         :param journal: The affected journal
-        :param dict user_lock_dates: A dictionary (company -> lockdate field -> lockdate) to cache the user lock dates.
-                                     (Those can i.e. be obtained from `_get_user_lock_date`.)
         :return: a list of tuples containing the lock dates ordered chronologically.
         """
         locks = self._get_lock_date_violations(
@@ -644,13 +629,15 @@ class ResCompany(models.Model):
             purchase=(journal and journal.type == 'purchase'),
             tax=has_tax,
             hard=True,
-            user_lock_dates=user_lock_dates,
-        )[0]
+        )
         locks.sort()
         return locks
 
     def write(self, values):
         self._validate_locks(values)
+
+        # TODO: move to dedicated function?
+        self.env['res.users'].invalidate_model(fnames=[field for field in SOFT_LOCK_DATE_FIELDS if field in values])
 
         # Reflect the change on accounts
         for company in self:

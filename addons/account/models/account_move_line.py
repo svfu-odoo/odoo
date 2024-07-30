@@ -1328,25 +1328,24 @@ class AccountMoveLine(models.Model):
         self.ensure_one()
         return self.tax_ids or self.tax_line_id or self.tax_tag_ids.filtered(lambda x: x.applicability == "taxes")
 
-    def _check_tax_lock_date(self, user_lock_dates=None):
+    def _check_tax_lock_date(self):
         for line in self:
             if line.move_id.state != 'posted':
                 continue
             move = line.move_id
-            violated_lock_dates, user_lock_dates = move.company_id._get_lock_date_violations(
+            violated_lock_dates = move.company_id._get_lock_date_violations(
                 move.date,
                 fiscalyear=False,
                 sale=False,
                 purchase=False,
                 tax=True,
                 hard=True,
-                user_lock_dates=user_lock_dates,
             )
             if violated_lock_dates and line._affect_tax_report():
                 raise UserError(_("The operation is refused as it would impact an already issued tax statement. "
                                   "Please change the journal entry date or the following lock dates to proceed: %(lock_date_info)s.",
                                   lock_date_info=self.env['res.company']._format_lock_dates(violated_lock_dates)))
-        return user_lock_dates
+        return True
 
     def _check_reconciliation(self):
         for line in self:
@@ -1632,7 +1631,6 @@ class AccountMoveLine(models.Model):
         line_to_write = self
         vals = self._sanitize_vals(vals)
 
-        user_lock_dates = {}
         for line in self:
             if not any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in vals):
                 line_to_write -= line
@@ -1643,11 +1641,11 @@ class AccountMoveLine(models.Model):
 
             # Check the lock date.
             if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['fiscal']):
-                line.move_id._check_fiscal_lock_dates(user_lock_dates)
+                line.move_id._check_fiscal_lock_dates()
 
             # Check the tax lock date.
             if line.parent_state == 'posted' and any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['tax']):
-                line._check_tax_lock_date(user_lock_dates)
+                line._check_tax_lock_date()
 
             # Check the reconciliation.
             if any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in protected_fields['reconciliation']):

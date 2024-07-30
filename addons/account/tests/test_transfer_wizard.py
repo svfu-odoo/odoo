@@ -422,9 +422,9 @@ class TestTransferWizard(AccountTestInvoicingCommon):
                 'journal_id': self.company_data['default_journal_misc'].id,
             })
 
-        # Check that the 'The date is being set prior to the user lock date' message appears.
+        # Check that the 'The date is being set prior to ...' message appears.
         self.assertRecordValues(wizard, [{
-            'lock_date_message': 'The date is being set prior to: Everyone Lock Date (02/28/2019), Hard Lock Date (02/28/2019), Sales Lock Date (02/28/2019), and Tax Return Lock Date (02/28/2019). '
+            'lock_date_message': 'The date is being set prior to: Global Lock Date (02/28/2019), Hard Lock Date (02/28/2019), Sales Lock Date (02/28/2019), and Tax Return Lock Date (02/28/2019). '
                                  'The Journal Entry will be accounted on 03/31/2019 upon posting.'
         }])
 

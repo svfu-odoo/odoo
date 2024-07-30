@@ -9,9 +9,8 @@ from odoo.addons.account.models.company import SOFT_LOCK_DATE_FIELDS
 class AccountLockException(models.Model):
     _name = "account.lock_exception"
     _description = "Account Lock Exception"
-    _inherit = ['mail.thread.main.attachment', 'mail.activity.mixin']
 
-    active = fields.Boolean('Active', default=True, tracking=True)
+    active = fields.Boolean('Active', default=True)
     state = fields.Selection(
         selection=[
          ('active', 'Active'),
@@ -47,8 +46,8 @@ class AccountLockException(models.Model):
     # An unset lock date field means the exception does not change this field.
     # (It is not possible to remove a lock date completely).
     fiscalyear_lock_date = fields.Date(
-        string="Everyone Lock Date",
-        help="The date the Everyone Lock Date is set to by this exception. If no date is set the lock date is not changed.",
+        string="Global Lock Date",
+        help="The date the Global Lock Date is set to by this exception. If no date is set the lock date is not changed.",
     )
     tax_lock_date = fields.Date(
         string="Tax Return Lock Date",
@@ -69,7 +68,8 @@ class AccountLockException(models.Model):
             self.env.cr,
             indexname='account_lock_exception_company_id_end_datetime_idx',
             tablename=self._table,
-            expressions=['company_id', 'end_datetime'],
+            expressions=['company_id', 'user_id', 'end_datetime'],
+            where="active = TRUE"
         )
 
     def _compute_display_name(self):
@@ -119,14 +119,16 @@ class AccountLockException(models.Model):
         exceptions = super().create(vals_list)
         for exception in exceptions:
             company = exception.company_id
-            changed_locks = [(field, exception[field]) for field in SOFT_LOCK_DATE_FIELDS if exception[field]]
+            changed_fields = [field for field in SOFT_LOCK_DATE_FIELDS if exception[field]]
             tracking_value_ids = []
-            for field, value in changed_locks:
+            for field in changed_fields:
+                value = exception[field]
                 field_info = exception.fields_get([field])[field]
                 tracking_values = self.env['mail.tracking.value']._create_tracking_values(
                     company[field], value, field, field_info, exception
                 )
                 tracking_value_ids.append(Command.create(tracking_values))
+            self.env['res.users'].invalidate_model(fnames=changed_fields)
             # In case there is no explicit end datetime "forever" is implied by not mentioning an end datetime
             end_datetime_string = _(" valid until %s", format_date(self.env, exception.end_datetime)) if exception.end_datetime else ""
             reason_string = _(" for '%s'", exception.reason) if exception.reason else ""
@@ -148,11 +150,15 @@ class AccountLockException(models.Model):
 
     def action_revoke(self):
         """Revokes an active exception."""
+        if not self.env.user.has_group('account.group_account_manager'):
+            raise UserError(_("You cannot revoke Lock Date Exceptions. Ask someone with the 'Adviser' role."))
         for record in self:
             if record.state == 'active':
                 record_sudo = record.sudo()
                 record_sudo.active = False
                 record_sudo.end_datetime = fields.Datetime.now()
+                excepted_fields = [field for field in SOFT_LOCK_DATE_FIELDS if record[field]]
+                self.env['res.users'].invalidate_model(fnames=excepted_fields)
 
     def _get_audit_trail_during_exception_domain(self):
         self.ensure_one()
