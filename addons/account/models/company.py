@@ -504,26 +504,26 @@ class ResCompany(models.Model):
         :return the user lock date
         """
         self.ensure_one()
-        soft_lock_date = self[soft_lock_date_field]
-        if soft_lock_date:
-            exception = self.env['account.lock_exception'].search(
-                [
-                  ('state', '=', 'active'),  # checks the datetime
-                  '|',
-                      ('user_id', '=', None),
-                      ('user_id', '=', self.env.user.id),
-                  (soft_lock_date_field, '<', soft_lock_date),
-                  ('company_id', '=', self.id),
-                ],
-                order=f'{soft_lock_date_field} asc',
-                limit=1,
-            )
-            if exception:
-                soft_lock_date = exception[soft_lock_date_field]
-        soft_lock_date = soft_lock_date or date.min
-        if self.parent_id:
-            # We need to use sudo, since we might not have access to a parent company.
-            soft_lock_date = max(soft_lock_date, self.sudo().parent_id._get_user_lock_date(soft_lock_date_field))
+        soft_lock_date = date.min
+        # We need to use sudo, since we might not have access to a parent company.
+        for company in self.sudo().parent_ids:
+            if company[soft_lock_date_field]:
+                exception = self.env['account.lock_exception'].search(
+                    [
+                      ('state', '=', 'active'),  # checks the datetime
+                      '|',
+                          ('user_id', '=', None),
+                          ('user_id', '=', self.env.user.id),
+                      (soft_lock_date_field, '<', company[soft_lock_date_field]),
+                      ('company_id', '=', company.id),
+                    ],
+                    order=f'{soft_lock_date_field} asc',
+                    limit=1,
+                )
+                if exception:
+                    soft_lock_date = max(soft_lock_date, exception[soft_lock_date_field])
+                else:
+                    soft_lock_date = max(soft_lock_date, company[soft_lock_date_field])
         return soft_lock_date
 
     def _get_fiscal_lock_date(self, journal):
