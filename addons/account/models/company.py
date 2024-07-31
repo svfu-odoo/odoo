@@ -526,17 +526,6 @@ class ResCompany(models.Model):
                     soft_lock_date = max(soft_lock_date, company[soft_lock_date_field])
         return soft_lock_date
 
-    def _get_fiscal_lock_date(self, journal):
-        """Get the fiscal lock date for this company (depending on the affected journal) ignoring user exceptions"""
-        self.ensure_one()
-        lock = max(self.max_fiscalyear_lock_date, self.max_hard_lock_date)
-        if journal:
-            if journal.type == 'sale':
-                lock = max(self.max_sale_lock_date, lock)
-            elif journal.type == 'purchase':
-                lock = max(self.max_purchase_lock_date, lock)
-        return lock
-
     def _get_user_fiscal_lock_date(self, journal):
         """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions"""
         self.ensure_one()
