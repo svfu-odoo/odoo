@@ -1,5 +1,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from datetime import date
+
 from odoo import api, fields, models
 
 
@@ -10,38 +12,51 @@ class Users(models.Model):
     #   * writing the corresponding lock date field on any company
     #   * an exception for that field is created (for any company)
     #   * an exception for that field is revoked (for any company)
+    # A `@api.depends` is necessary for the `@api.depends_context` to work correctly
     fiscalyear_lock_date = fields.Date(compute='_compute_fiscalyear_lock_date')
     tax_lock_date = fields.Date(compute='_compute_tax_lock_date')
     sale_lock_date = fields.Date(compute='_compute_sale_lock_date')
     purchase_lock_date = fields.Date(compute='_compute_purchase_lock_date')
+    hard_lock_date = fields.Date(compute='_compute_hard_lock_date')
 
     @api.depends('company_id')
-    @api.depends_context('company')
+    @api.depends_context('company', 'ignore_exceptions')
     def _compute_fiscalyear_lock_date(self):
         company = self.env.company
+        ignore_exceptions = bool(self.env.context.get('ignore_exceptions', False))
         for user in self:
-            user.fiscalyear_lock_date = company.with_user(user)._get_user_lock_date('fiscalyear_lock_date')
+            user.fiscalyear_lock_date = company.with_user(user)._get_user_lock_date('fiscalyear_lock_date', ignore_exceptions)
 
     @api.depends('company_id')
-    @api.depends_context('company')
+    @api.depends_context('company', 'ignore_exceptions')
     def _compute_tax_lock_date(self):
         company = self.env.company
+        ignore_exceptions = bool(self.env.context.get('ignore_exceptions', False))
         for user in self:
-            user.tax_lock_date = company.with_user(user)._get_user_lock_date('tax_lock_date')
+            user.tax_lock_date = company.with_user(user)._get_user_lock_date('tax_lock_date', ignore_exceptions)
 
     @api.depends('company_id')
-    @api.depends_context('company')
+    @api.depends_context('company', 'ignore_exceptions')
     def _compute_sale_lock_date(self):
         company = self.env.company
+        ignore_exceptions = bool(self.env.context.get('ignore_exceptions', False))
         for user in self:
-            user.sale_lock_date = company.with_user(user)._get_user_lock_date('sale_lock_date')
+            user.sale_lock_date = company.with_user(user)._get_user_lock_date('sale_lock_date', ignore_exceptions)
+
+    @api.depends('company_id')
+    @api.depends_context('company', 'ignore_exceptions')
+    def _compute_purchase_lock_date(self):
+        company = self.env.company
+        ignore_exceptions = bool(self.env.context.get('ignore_exceptions', False))
+        for user in self:
+            user.purchase_lock_date = company.with_user(user)._get_user_lock_date('purchase_lock_date', ignore_exceptions)
 
     @api.depends('company_id')
     @api.depends_context('company')
-    def _compute_purchase_lock_date(self):
+    def _compute_hard_lock_date(self):
         company = self.env.company
         for user in self:
-            user.purchase_lock_date = company.with_user(user)._get_user_lock_date('purchase_lock_date')
+            user.hard_lock_date = max(c.hard_lock_date or date.min for c in company.sudo().parent_ids)
 
 
 class GroupsView(models.Model):

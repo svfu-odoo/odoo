@@ -48,18 +48,19 @@ class ResCompany(models.Model):
         """
         pos_session_model = self.env['pos.session'].sudo()
         for record in self:
-            fiscal_lock_date = max(record.max_fiscalyear_lock_date, record.max_hard_lock_date)
+            user = self.env.user.with_context(ignore_exceptions=True).with_company(record)
+            fiscal_lock_date = max(user.fiscalyear_lock_date, user.hard_lock_date)
             sessions_in_period = pos_session_model.search(
                 [
                     ("company_id", "child_of", record.id),
                     ("state", "!=", "closed"),
                     *expression.OR([
                         [("start_at", "<=", fiscal_lock_date)],
-                        [("start_at", "<=", record.max_tax_lock_date)],
+                        [("start_at", "<=", user.tax_lock_date)],
                         [("config_id.journal_id.type", "=", 'sale'),
-                         ("start_at", "<=", record.max_sale_lock_date)],
+                         ("start_at", "<=", user.sale_lock_date)],
                         [("config_id.journal_id.type", "=", 'purchase'),
-                         ("start_at", "<=", record.max_purchase_lock_date)],
+                         ("start_at", "<=", user.purchase_lock_date)],
                     ])
                 ]
             )

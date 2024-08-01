@@ -60,30 +60,25 @@ class ResCompany(models.Model):
         tracking=True,
         help="No users can edit accounts prior to and inclusive of this date."
              " Use it for fiscal year locking for example.")
-    max_fiscalyear_lock_date = fields.Date(compute='_compute_max_fiscalyear_lock_date')
     tax_lock_date = fields.Date(
         string="Tax Return Lock Date",
         tracking=True,
         help="No users can edit journal entries related to a tax prior and inclusive of this date.")
-    max_tax_lock_date = fields.Date(compute='_compute_max_tax_lock_date')
     sale_lock_date = fields.Date(
         string='Sales Lock Date',
         tracking=True,
         help='Prevents creation and modification of entries in sales journals up to the defined date inclusive.'
     )
-    max_sale_lock_date = fields.Date(compute='_compute_max_sale_lock_date')
     purchase_lock_date = fields.Date(
         string='Purchase Lock date',
         tracking=True,
         help='Prevents creation and modification of entries in purchase journals up to the defined date inclusive.'
     )
-    max_purchase_lock_date = fields.Date(compute='_compute_max_purchase_lock_date')
     hard_lock_date = fields.Date(
         string='Hard Lock Date',
         tracking=True,
         help='Like the "Global Lock Date", but no exceptions are possible.'
     )
-    max_hard_lock_date = fields.Date(compute='_compute_max_hard_lock_date')
     transfer_account_id = fields.Many2one('account.account',
         check_company=True,
         domain="[('reconcile', '=', True), ('account_type', '=', 'asset_current'), ('deprecated', '=', False)]", string="Inter-Banks Transfer Account", help="Intermediary account used when moving money from a liqity account to another")
@@ -305,31 +300,6 @@ class ResCompany(models.Model):
             if html:
                 company.invoice_terms_html = html
 
-    @api.depends('fiscalyear_lock_date', 'parent_ids.fiscalyear_lock_date')
-    def _compute_max_fiscalyear_lock_date(self):
-        for company in self:
-            company.max_fiscalyear_lock_date = max(c.fiscalyear_lock_date or date.min for c in company.sudo().parent_ids)
-
-    @api.depends('tax_lock_date', 'parent_ids.tax_lock_date')
-    def _compute_max_tax_lock_date(self):
-        for company in self:
-            company.max_tax_lock_date = max(c.tax_lock_date or date.min for c in company.sudo().parent_ids)
-
-    @api.depends('sale_lock_date', 'parent_ids.sale_lock_date')
-    def _compute_max_sale_lock_date(self):
-        for company in self:
-            company.max_sale_lock_date = max(c.sale_lock_date or date.min for c in company.sudo().parent_ids)
-
-    @api.depends('purchase_lock_date', 'parent_ids.purchase_lock_date')
-    def _compute_max_purchase_lock_date(self):
-        for company in self:
-            company.max_purchase_lock_date = max(c.purchase_lock_date or date.min for c in company.sudo().parent_ids)
-
-    @api.depends('hard_lock_date', 'parent_ids.hard_lock_date')
-    def _compute_max_hard_lock_date(self):
-        for company in self:
-            company.max_hard_lock_date = max(c.hard_lock_date or date.min for c in company.sudo().parent_ids)
-
     def _initiate_account_onboardings(self):
         account_onboarding_routes = [
             'account_dashboard',
@@ -497,10 +467,11 @@ class ResCompany(models.Model):
                     })
                 raise RedirectWarning(msg, action, _('Show Journal Entries to Hash'))
 
-    def _get_user_lock_date(self, soft_lock_date_field):
+    def _get_user_lock_date(self, soft_lock_date_field, ignore_exceptions=False):
         """Get the lock date called `soft_lock_date_field` for this company depending on the user.
-        We consider the field and exceptions for it in this company and the parent companies.
+        We consider the field and exceptions (except if `ignore_exceptions`) for it in this company and the parent companies.
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
+        :param bool ignore_exceptions: Whether we ignore exceptions or not
         :return the user lock date
         """
         self.ensure_one()
@@ -508,18 +479,21 @@ class ResCompany(models.Model):
         # We need to use sudo, since we might not have access to a parent company.
         for company in self.sudo().parent_ids:
             if company[soft_lock_date_field]:
-                exception = self.env['account.lock_exception'].search(
-                    [
-                      ('state', '=', 'active'),  # checks the datetime
-                      '|',
-                          ('user_id', '=', None),
-                          ('user_id', '=', self.env.user.id),
-                      (soft_lock_date_field, '<', company[soft_lock_date_field]),
-                      ('company_id', '=', company.id),
-                    ],
-                    order=f'{soft_lock_date_field} asc',
-                    limit=1,
-                )
+                if ignore_exceptions:
+                    exception = None
+                else:
+                    exception = self.env['account.lock_exception'].search(
+                        [
+                          ('state', '=', 'active'),  # checks the datetime
+                          '|',
+                              ('user_id', '=', None),
+                              ('user_id', '=', self.env.user.id),
+                          (soft_lock_date_field, '<', company[soft_lock_date_field]),
+                          ('company_id', '=', company.id),
+                        ],
+                        order=f'{soft_lock_date_field} asc',
+                        limit=1,
+                    )
                 if exception:
                     soft_lock_date = max(soft_lock_date, exception[soft_lock_date_field])
                 else:
@@ -529,12 +503,13 @@ class ResCompany(models.Model):
     def _get_user_fiscal_lock_date(self, journal):
         """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions"""
         self.ensure_one()
-        lock = max(self.env.user.fiscalyear_lock_date, self.max_hard_lock_date)
+        user = self.env.user.with_company(self)
+        lock = max(user.fiscalyear_lock_date, user.hard_lock_date)
         if journal:
             if journal.type == 'sale':
-                lock = max(self.env.user.sale_lock_date, lock)
+                lock = max(user.sale_lock_date, lock)
             elif journal.type == 'purchase':
-                lock = max(self.env.user.purchase_lock_date, lock)
+                lock = max(user.purchase_lock_date, lock)
         return lock
 
     def _get_violated_soft_lock_date(self, soft_lock_date_field, date):
@@ -549,10 +524,11 @@ class ResCompany(models.Model):
         if not self:
             return violated_date
         self.ensure_one()
-        regular_lock_date = self[f'max_{soft_lock_date_field}']
+        user = self.env.user.with_company(self)
+        regular_lock_date = user.with_context(ignore_exceptions=True)[soft_lock_date_field]
         if date <= regular_lock_date:
             violated_date = regular_lock_date
-            user_lock_date = self.env.user[soft_lock_date_field]
+            user_lock_date = user[soft_lock_date_field]
             violated_date = None if date > user_lock_date else user_lock_date
         return violated_date
 
@@ -587,7 +563,7 @@ class ResCompany(models.Model):
                 locks.append((violated_date, field))
 
         if hard:
-            hard_lock_date = self.max_hard_lock_date
+            hard_lock_date = self.env.user.with_company(self).hard_lock_date
             if accounting_date <= hard_lock_date:
                 locks.append((hard_lock_date, 'hard_lock_date'))
 
@@ -625,8 +601,7 @@ class ResCompany(models.Model):
     def write(self, values):
         self._validate_locks(values)
 
-        # TODO: move to dedicated function?
-        self.env['res.users'].invalidate_model(fnames=[field for field in SOFT_LOCK_DATE_FIELDS if field in values])
+        self.env['res.users'].invalidate_model(fnames=[field for field in LOCK_DATE_FIELDS if field in values])
 
         # Reflect the change on accounts
         for company in self:
