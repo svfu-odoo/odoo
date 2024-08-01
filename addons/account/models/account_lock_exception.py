@@ -167,7 +167,7 @@ class AccountLockException(models.Model):
             ('model', '=', 'account.move'),
             ('account_audit_log_activated', '=', True),
             ('message_type', '=', 'notification'),
-            ('account_audit_log_move_id.company_id', 'child_of', self.company_id.id),  # WORKAROUND: record_company_id is not set for bills (TODO: investigate)
+            ('account_audit_log_move_id.company_id', 'child_of', self.company_id.id),  # WORKAROUND: record_company_id is not set for bills
             ('date', '>=', self.create_date),
         ]
 
