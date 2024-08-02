@@ -500,10 +500,13 @@ class ResCompany(models.Model):
                     soft_lock_date = max(soft_lock_date, company[soft_lock_date_field])
         return soft_lock_date
 
-    def _get_user_fiscal_lock_date(self, journal):
-        """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions"""
+    def _get_user_fiscal_lock_date(self, journal, ignore_exceptions=False):
+        """Get the fiscal lock date for this company (depending on the affected journal) accounting for potential user exceptions
+        :param bool ignore_exceptions: Whether we ignore exceptions or not
+        :return the lock date
+        """
         self.ensure_one()
-        user = self.env.user.with_company(self)
+        user = self.env.user.with_company(self).with_context(ignore_exceptions=ignore_exceptions)
         lock = max(user.fiscalyear_lock_date, user.hard_lock_date)
         if journal:
             if journal.type == 'sale':
@@ -528,7 +531,7 @@ class ResCompany(models.Model):
         regular_lock_date = user.with_context(ignore_exceptions=True)[soft_lock_date_field]
         if date <= regular_lock_date:
             violated_date = regular_lock_date
-            user_lock_date = user[soft_lock_date_field]
+            user_lock_date = user.with_context(ignore_exceptions=False)[soft_lock_date_field]
             violated_date = None if date > user_lock_date else user_lock_date
         return violated_date
 
