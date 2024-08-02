@@ -520,7 +520,6 @@ class ResCompany(models.Model):
         Check whether `date` violates the lock date called `soft_lock_date_field`.
         :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
         :param date: We check whether this date is prior or equal to the lock date.
-        :param user_lock_date: We can pass the user lock date directly to avoid (re-)computing it.
         :return the violated lock date as a date (or `None`)
         """
         violated_date = None
