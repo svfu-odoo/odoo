@@ -470,7 +470,7 @@ class ResCompany(models.Model):
     def _get_user_lock_date(self, soft_lock_date_field, ignore_exceptions=False):
         """Get the lock date called `soft_lock_date_field` for this company depending on the user.
         We consider the field and exceptions (except if `ignore_exceptions`) for it in this company and the parent companies.
-        :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
+        :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date'; see SOFT_LOCK_DATE_FIELDS)
         :param bool ignore_exceptions: Whether we ignore exceptions or not
         :return the user lock date
         """
@@ -518,7 +518,7 @@ class ResCompany(models.Model):
     def _get_violated_soft_lock_date(self, soft_lock_date_field, date):
         """
         Check whether `date` violates the lock date called `soft_lock_date_field`.
-        :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date')
+        :param str soft_lock_date_field: One of the lock date fields (except 'hard_lock_date'; see SOFT_LOCK_DATE_FIELDS)
         :param date: We check whether this date is prior or equal to the lock date.
         :return the violated lock date as a date (or `None`)
         """
