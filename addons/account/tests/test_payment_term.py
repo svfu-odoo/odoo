@@ -282,3 +282,64 @@ class TestAccountPaymentTerms(AccountTestInvoicingCommon):
             (230.0, 0.0),
             (575.0, 475.0),
         ])
+
+    def test_payment_term_compute_method_cash_rounding(self):
+        def assert_payment_term_values(expected_values_list):
+            res = pay_term._compute_terms(
+                fields.Date.from_string('2016-01-01'), self.env.company.currency_id, self.env.company,
+                150, 150, 1, 718.35, 718.35, cash_rounding=self.cash_rounding_a
+            )
+            self.assertEqual(len(res), len(expected_values_list))
+            total_company_amount = 0
+            for values, (company_amount, discount_balance) in zip(res, expected_values_list):
+                self.assertAlmostEqual(values['company_amount'], company_amount)
+                self.assertAlmostEqual(values['discount_balance'], discount_balance)
+                total_company_amount += values['company_amount']
+            self.assertAlmostEqual(total_company_amount, 868.35)
+
+        pay_term = self.env['account.payment.term'].create({
+            'name': "turlututu",
+            'line_ids': [
+                Command.create({
+                    'value': 'percent',
+                    'value_amount': 10,
+                    'days': 2,
+                    'discount_percentage': 10,
+                    'discount_days': 1,
+                }),
+                Command.create({
+                    'value': 'percent',
+                    'value_amount': 20,
+                    'days': 4,
+                    'discount_percentage': 20,
+                    'discount_days': 3,
+                }),
+                Command.create({
+                    'value': 'percent',
+                    'value_amount': 20,
+                    'days': 6,
+                }),
+                Command.create({
+                    'value': 'balance',
+                    'days': 8,
+                    'discount_percentage': 20,
+                    'discount_days': 7,
+                }),
+            ],
+        })
+
+        self.env.company.early_pay_discount_computation = 'included'
+        assert_payment_term_values([
+            (86.85, 78.20),
+            (173.70, 139.00),
+            (173.70, 0.00),
+            (434.1, 347.30),
+        ])
+
+        self.env.company.early_pay_discount_computation = 'excluded'
+        assert_payment_term_values([
+            (86.85, 79.70),
+            (173.70, 145.00),
+            (173.70, 0.00),
+            (434.1, 362.30),
+        ])
