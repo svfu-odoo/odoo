@@ -295,3 +295,23 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                     'date': fields.Date.to_date('2023-02-28'),
                 }])
                 sp.close()  # Rollback to ensure all subtests start in the same situation
+
+    @freezegun.freeze_time('2024-08-05')
+    def test_lock_date_exceptions(self):
+        for lock_date_field, move_type in [
+            ('fiscalyear_lock_date', 'out_invoice'),
+            ('tax_lock_date', 'out_invoice'),
+            ('sale_lock_date', 'out_invoice'),
+            ('purchase_lock_date', 'in_invoice'),
+        ]:
+            with self.subTest(lock_date_field=lock_date_field, move_type=move_type):
+                self.env.company[lock_date_field] = '2024-07-31'
+                self.env['account.lock_exception'].create({
+                    lock_date_field: fields.Date.to_date('2024-01-01'),
+                    'end_datetime': False,
+                })
+                move = self.init_invoice(
+                    move_type, amounts=[100], taxes=self.env.company.account_sale_tax_id,
+                    invoice_date='2024-07-01', post=True
+                )
+                self.assertEqual(move.date, fields.Date.to_date('2024-07-01'))

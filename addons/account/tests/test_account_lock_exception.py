@@ -304,14 +304,24 @@ class TestAccountLockException(AccountTestInvoicingCommon):
 
                 sp.close()  # Rollback to ensure all subtests start in the same situation
 
-    def test_hard_lock_ignores_exceptions(self):
+    def test_hard_lock_date(self):
         """
-        Test that exceptions (for other lock date fields) do not allow bypassing the hard lock date.
+        Test that
+          * exceptions (for other lock date fields) do not allow bypassing the hard lock date
+          * the hard lock date cannot be decreased or removed
         """
         in_move = self.init_invoice('in_invoice', invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
         out_move = self.init_invoice('out_invoice', invoice_date='2016-01-01', post=True, amounts=[1000.0], taxes=self.tax_sale_a)
 
         self.company.hard_lock_date = fields.Date.to_date('2020-01-01')
+
+        # Check that we cannot remove the hard lock date.
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.company.hard_lock_date = False
+
+        # Check that we cannot decrease the hard lock date.
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.company.hard_lock_date = fields.Date.to_date('2019-01-01')
 
         # Create exceptions for all lock date fields except the hard lock date
         self.env['account.lock_exception'].create([
