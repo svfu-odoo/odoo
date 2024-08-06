@@ -699,7 +699,7 @@ class AccountMove(models.Model):
                 continue
             accounting_date = move.invoice_date
             if not move.is_sale_document(include_receipts=True):
-                accounting_date = move._get_accounting_date(move.invoice_date, move._affect_tax_report(), move.journal_id)
+                accounting_date = move._get_accounting_date(move.invoice_date, move._affect_tax_report())
             if accounting_date and accounting_date != move.date:
                 move.date = accounting_date
                 # _affect_tax_report may trigger premature recompute of line_ids.date
@@ -1446,7 +1446,7 @@ class AccountMove(models.Model):
         for move in self:
             accounting_date = move.date or fields.Date.context_today(move)
             affects_tax_report = move._affect_tax_report()
-            move.tax_lock_date_message = move._get_lock_date_message(accounting_date, affects_tax_report, move.journal_id)
+            move.tax_lock_date_message = move._get_lock_date_message(accounting_date, affects_tax_report)
 
     @api.depends('currency_id')
     def _compute_display_inactive_currency_warning(self):
@@ -3248,7 +3248,7 @@ class AccountMove(models.Model):
                                          ('invoice_date', '!=', False)],
                                         limit=1)
                 if prev_move:
-                    invoice_date = self._get_accounting_date(prev_move.invoice_date, False, record.journal_id)
+                    invoice_date = self._get_accounting_date(prev_move.invoice_date, False)
                 record.invoice_date = invoice_date
 
     @api.onchange('quick_edit_total_amount', 'partner_id')
@@ -4311,9 +4311,9 @@ class AccountMove(models.Model):
 
         for move in to_post:
             affects_tax_report = move._affect_tax_report()
-            lock_dates = move._get_violated_lock_dates(move.date, affects_tax_report, move.journal_id)
+            lock_dates = move._get_violated_lock_dates(move.date, affects_tax_report)
             if lock_dates:
-                move.date = move._get_accounting_date(move.invoice_date or move.date, affects_tax_report, move.journal_id, lock_dates=lock_dates)
+                move.date = move._get_accounting_date(move.invoice_date or move.date, affects_tax_report, lock_dates=lock_dates)
 
         # Create the analytic lines in batch is faster as it leads to less cache invalidation.
         to_post.line_ids._create_analytic_lines()
@@ -4836,7 +4836,7 @@ class AccountMove(models.Model):
     def is_outbound(self, include_receipts=True):
         return self.move_type in self.get_outbound_types(include_receipts)
 
-    def _get_accounting_date(self, invoice_date, has_tax, journal, lock_dates=None):
+    def _get_accounting_date(self, invoice_date, has_tax, lock_dates=None):
         """Get correct accounting date for previous periods, taking tax lock date and affected journal into account.
         When registering an invoice in the past, we still want the sequence to be increasing.
         We then take the last day of the period, depending on the sequence format.
@@ -4844,13 +4844,13 @@ class AccountMove(models.Model):
         If there is a tax lock date and there are taxes involved, we register the invoice at the
         last date of the first open period.
         :param invoice_date (datetime.date): The invoice date
-        :param journal (account.journal): The affected journal
         :param has_tax (bool): Iff any taxes are involved in the lines of the invoice
         :param lock_dates: Like result from `_get_violated_lock_dates`;
                            Can be used to avoid recomputing them in case they are already known.
         :return (datetime.date):
         """
-        lock_dates = lock_dates or self._get_violated_lock_dates(invoice_date, has_tax, journal)
+        self.ensure_one()
+        lock_dates = lock_dates or self._get_violated_lock_dates(invoice_date, has_tax)
         today = fields.Date.context_today(self)
         highest_name = self.highest_name or self._get_last_sequence(relaxed=True)
         number_reset = self._deduce_sequence_number_reset(highest_name)
@@ -4875,26 +4875,25 @@ class AccountMove(models.Model):
                     return max(invoice_date, today)
         return invoice_date
 
-    def _get_violated_lock_dates(self, invoice_date, has_tax, journal):
+    def _get_violated_lock_dates(self, invoice_date, has_tax):
         """Get all the lock dates affecting the current invoice_date.
         :param invoice_date: The invoice date
         :param has_tax: If any taxes are involved in the lines of the invoice
-        :param journal: The affected journal
         :return: a list of tuples containing the lock dates affecting this move, ordered chronologically.
         """
-        return self.company_id._get_violated_lock_dates(invoice_date, has_tax, journal)
+        self.ensure_one()
+        return self.company_id._get_violated_lock_dates(invoice_date, has_tax, self.journal_id)
 
-    def _get_lock_date_message(self, invoice_date, has_tax, journal):
+    def _get_lock_date_message(self, invoice_date, has_tax):
         """Get a message describing the latest lock date affecting the specified date.
         :param invoice_date: The date to be checked
         :param has_tax: If any taxes are involved in the lines of the invoice
-        :param journal (account.journal): The affected journal
         :return: a message describing the latest lock date affecting this move and the date it will be
                  accounted on if posted, or False if no lock dates affect this move.
         """
-        lock_dates = self._get_violated_lock_dates(invoice_date, has_tax, journal)
+        lock_dates = self._get_violated_lock_dates(invoice_date, has_tax)
         if lock_dates:
-            invoice_date = self._get_accounting_date(invoice_date, has_tax, journal, lock_dates=lock_dates)
+            invoice_date = self._get_accounting_date(invoice_date, has_tax, lock_dates=lock_dates)
             tax_lock_date_message = _(
                 "The date is being set prior to: %(lock_date_info)s. "
                 "The Journal Entry will be accounted on %(invoice_date)s upon posting.",
