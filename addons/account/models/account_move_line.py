@@ -1334,9 +1334,9 @@ class AccountMoveLine(models.Model):
 
     def _check_tax_lock_date(self):
         for line in self:
-            if line.move_id.state != 'posted':
-                continue
             move = line.move_id
+            if move.state != 'posted':
+                continue
             violated_lock_dates = move.company_id._get_lock_date_violations(
                 move.date,
                 fiscalyear=False,
@@ -1634,7 +1634,6 @@ class AccountMoveLine(models.Model):
 
         line_to_write = self
         vals = self._sanitize_vals(vals)
-
         for line in self:
             if not any(self.env['account.move']._field_will_change(line, vals, field_name) for field_name in vals):
                 line_to_write -= line
