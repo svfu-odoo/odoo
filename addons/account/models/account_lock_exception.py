@@ -13,9 +13,9 @@ class AccountLockException(models.Model):
     active = fields.Boolean('Active', default=True)
     state = fields.Selection(
         selection=[
-         ('active', 'Active'),
-         ('revoked', 'Revoked'),
-         ('expired', 'Expired'),
+            ('active', 'Active'),
+            ('revoked', 'Revoked'),
+            ('expired', 'Expired'),
         ],
         string="State",
         compute='_compute_state',
@@ -128,7 +128,7 @@ class AccountLockException(models.Model):
                     company[field], value, field, field_info, exception
                 )
                 tracking_value_ids.append(Command.create(tracking_values))
-            self.env['res.users'].invalidate_model(fnames=changed_fields)
+            self.env['res.company'].invalidate_model(fnames=[f'user_{field}' for field in changed_fields])
             # In case there is no explicit end datetime "forever" is implied by not mentioning an end datetime
             end_datetime_string = _(" valid until %s", format_date(self.env, exception.end_datetime)) if exception.end_datetime else ""
             reason_string = _(" for '%s'", exception.reason) if exception.reason else ""
@@ -157,8 +157,8 @@ class AccountLockException(models.Model):
                 record_sudo = record.sudo()
                 record_sudo.active = False
                 record_sudo.end_datetime = fields.Datetime.now()
-                excepted_fields = [field for field in SOFT_LOCK_DATE_FIELDS if record[field]]
-                self.env['res.users'].invalidate_model(fnames=excepted_fields)
+                fields_to_invalidate = [f'user_{field}' for field in SOFT_LOCK_DATE_FIELDS if record[field]]
+                self.env['res.company'].invalidate_model(fnames=fields_to_invalidate)
 
     def _get_audit_trail_during_exception_domain(self):
         self.ensure_one()

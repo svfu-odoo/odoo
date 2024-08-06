@@ -130,7 +130,7 @@ class account_journal(models.Model):
         self.env['account.move'].flush_model(['journal_id', 'date', 'sequence_prefix', 'made_sequence_gap'])
         queries = []
         for company in self.env.companies:
-            user = self.env.user.with_context(ignore_exceptions=True).with_company(company)
+            company = company.with_context(ignore_exceptions=True)
             queries.append(SQL(
                 """
                     SELECT move.journal_id,
@@ -147,9 +147,9 @@ class account_journal(models.Model):
                 """,
                 journal_ids=self.ids,
                 company_id=company.id,
-                fiscal_lock_date=max(user.fiscalyear_lock_date, user.hard_lock_date),
-                sale_lock_date=user.sale_lock_date,
-                purchase_lock_date=user.purchase_lock_date,
+                fiscal_lock_date=max(company.user_fiscalyear_lock_date, company.user_hard_lock_date),
+                sale_lock_date=company.user_sale_lock_date,
+                purchase_lock_date=company.user_purchase_lock_date,
             ))
         self.env.cr.execute(SQL(' UNION ALL '.join(['%s'] * len(queries)), *queries))
         return self.env.cr.fetchall()
