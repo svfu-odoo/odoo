@@ -183,14 +183,12 @@ class AccountPaymentTerm(models.Model):
                     rate = abs(term_vals['foreign_amount'] / term_vals['company_amount']) if term_vals['company_amount'] else 1.0
 
                     foreign_rounding_amount += cash_rounding_difference_currency
-                    term_vals['foreign_rounding_amount'] = cash_rounding_difference_currency
                     term_vals['foreign_amount'] += cash_rounding_difference_currency
 
                     company_amount = company_currency.round(term_vals['foreign_amount'] / rate)
                     cash_rounding_difference = company_amount - term_vals['company_amount']
                     if not currency.is_zero(cash_rounding_difference):
                         company_rounding_amount += cash_rounding_difference
-                        term_vals['company_rounding_amount'] = cash_rounding_difference
                         term_vals['company_amount'] = company_amount
 
             if line.discount_percentage:
@@ -206,7 +204,6 @@ class AccountPaymentTerm(models.Model):
                 cash_rounding_difference_currency = cash_rounding.compute_difference(currency, term_vals['discount_amount_currency'])
                 if not currency.is_zero(cash_rounding_difference_currency):
                     rate = abs(term_vals['discount_amount_currency'] / term_vals['discount_balance']) if term_vals['discount_balance'] else 1.0
-                    term_vals['discount_rounding_amount_currency'] = cash_rounding_difference_currency
                     term_vals['discount_amount_currency'] += cash_rounding_difference_currency
                     term_vals['discount_balance'] = company_currency.round(term_vals['discount_amount_currency'] / rate)
 
