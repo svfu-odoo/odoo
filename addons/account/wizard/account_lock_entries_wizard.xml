@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_account_lock_entries_wizard" model="ir.ui.view">
+            <field name="name">account.lock.entries.wizard.form</field>
+            <field name="model">account.lock.entries.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Lock Journal Entries (with a Hash)">
+                    <sheet>
+                        <group>
+                            <field name="show_draft_entries_warning" invisible="True"/>
+                            <div class="alert alert-warning mb-0 d-flex" role="alert"
+                                 colspan="2"
+                                 invisible="not show_draft_entries_warning">
+                                There are still draft entries in the period you want to hash.
+                                You should either post or delete them.
+                                <a type="object"
+                                   class="oe_link fw-bold"
+                                   name="action_show_draft_moves_in_hashed_period"
+                                   icon="oi-arrow-right">
+                                    Review
+                                </a>
+                            </div>
+                            <div class="text-muted mb-1" colspan="2">
+                                <i>Hash entries up to specific dates, inclusive</i>
+                            </div>
+                            <field name="company_id" invisible="1"/>
+                            <label for="hash_date"/>
+                            <div class="d-flex">
+                                <field name="hash_date" placeholder="Not hashed"
+                                       class="oe_inline"
+                                       options="{'warn_future': true}"/>
+                                <span class="text-muted mx-2">
+                                    <i>to make them immutable</i>
+                                </span>
+                            </div>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button string="Hash Entries" class="btn-primary" name="action_lock_entries" type="object" data-hotkey="v"/>
+                        <button string="Discard" special="cancel" data-hotkey="z"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_view_account_lock_entries_wizard" model="ir.actions.act_window">
+            <field name="name">Lock Journal Entries (with a Hash)</field>
+            <field name="res_model">account.lock.entries.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="view_account_lock_entries_wizard"/>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            id="menu_action_lock_entries"
+            name="Lock Entries"
+            action="action_view_account_lock_entries_wizard"
+            parent="account.menu_finance_entries"
+            sequence="80"
+            groups="base.group_no_one"/>
+    </data>
+</odoo>

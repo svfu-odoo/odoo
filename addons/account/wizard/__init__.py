@@ -3,6 +3,7 @@
 
 from . import account_automatic_entry_wizard
 from . import account_autopost_bills_wizard
+from . import account_lock_entries_wizard
 from . import account_validate_account_move
 from . import account_move_reversal
 from . import account_resequence
