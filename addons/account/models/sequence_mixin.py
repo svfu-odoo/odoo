@@ -361,11 +361,7 @@ class SequenceMixin(models.AbstractModel):
         seq_format_values['seq'] += 1
         return seq_format.format(**seq_format_values) == self.name
 
-    def _is_end_of_seq_chain(self):
-        """Tells whether or not these elements are the last ones of the sequence chain.
-
-        :return: True if self are the last elements of the chain.
-        """
+    def _batch(self):
         batched = defaultdict(lambda: {'last_rec': self.browse(), 'seq_list': []})
         for record in self.filtered(lambda x: x[x._sequence_field]):
             seq_format, format_values = record._get_sequence_format_param(record[record._sequence_field])
@@ -374,7 +370,45 @@ class SequenceMixin(models.AbstractModel):
             batch['seq_list'].append(seq)
             if batch['last_rec'].sequence_number <= record.sequence_number:
                 batch['last_rec'] = record
+        return batched
 
+    # TODO: remove
+    #       version with whol subchain only
+    # def _get_gaps(self):
+    #     """Return information about gaps in sequence chains of these elements."""
+    #     batched = self._batch()
+    #     gaps = {}
+    #     for seq_format_info, values in batched.items():
+    #         # The sequences we are deleting are not sequential
+    #         seq_list = values['seq_list']
+    #         min_seq_num = min(seq_list)
+    #         max_seq_num = max(seq_list)
+    #         has_gap = max_seq_num - min_seq_num != len(seq_list) - 1
+    #         if has_gap:
+    #             gaps[seq_format_info] = (min_seq_num, max_seq_num)
+    #     return gaps
+
+    def _get_gaps(self):
+        """Return information about gaps in sequence chains of these elements."""
+        batched = self._batch()
+        gaps = {}
+        for seq_format_info, values in batched.items():
+            # The sequences we are deleting are not sequential
+            seq_list = values['seq_list']
+            seq_list.sort()
+            for i in range(len(seq_list) - 1):
+                seq = seq_list[i + 1]
+                pred_seq = seq_list[i]
+                if pred_seq + 1 != seq:
+                    gaps.setdefault(seq_format_info, []).append((pred_seq, seq))
+        return gaps
+
+    def _is_end_of_seq_chain(self):
+        """Tells whether or not these elements are the last ones of the sequence chain.
+
+        :return: True if self are the last elements of the chain.
+        """
+        batched = self._batch()
         for values in batched.values():
             # The sequences we are deleting are not sequential
             seq_list = values['seq_list']

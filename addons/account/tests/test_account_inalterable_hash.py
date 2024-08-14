@@ -15,7 +15,7 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
     def _init_and_post(self, vals, hash_version=False, secure_sequence=None):
         moves = self.env['account.move']
         for val in vals:
-            move = self.init_invoice("out_invoice", val['partner'], val['date'], amounts=val['amounts'], post=False)
+            move = self.init_invoice("out_invoice", val['partner'], val['date'], amounts=val['amounts'], journal=val.get('journal'), post=False)
             if secure_sequence:  # Simulate old behavior (pre hash v4)
                 move.secure_sequence_number = secure_sequence.next_by_id()
             if hash_version:
@@ -97,7 +97,7 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
 
         # No records to be hashed because the restrict mode is not activated yet
         for result in moves.company_id._check_hash_integrity()['results']:
-            self.assertEqual(result['status'], 'not_restricted')
+            self.assertEqual(result['status'], 'no_data')
 
         self.company_data['default_journal_sale'].restrict_mode_hash_table = True
 
@@ -653,3 +653,105 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
 
         with patch('odoo.addons.account.models.company.INTEGRITY_HASH_BATCH_SIZE', 12):
             self._verify_integrity(moves, "Entries are correctly hashed", moves[0], moves[-1], moves[0].journal_id.name)
+
+    def test_wizard_hashes_all_journals(self):
+        """
+        Test that the wizard hashes all journals.
+          * Regardless of the `restrict_mode_hash_table` setting on the journal.
+          * Regardless of the lock date
+        """
+        moves = self.env['account.move'].create([
+            {
+                'date': '2023-01-02',
+                'journal_id': self.env['account.journal'].create({
+                    'code': f'wiz{idx}',
+                    'name': f'Wizard {journal_type}',
+                    'type': journal_type,
+                }).id,
+                'line_ids': [Command.create({
+                    'name': 'test',
+                    'quantity': 1,
+                    'price_unit': 1000,
+                    'account_id': self.company_data['default_account_revenue'].id,
+                })],
+            } for idx, journal_type in enumerate(('sale', 'purchase', 'cash', 'bank', 'credit', 'general'))
+        ])
+        moves.action_post()
+        self.company_data['company'].hard_lock_date = '2023-01-02'
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2023-01-02'})
+        wizard.action_secure_entries()
+        self.assertTrue(False not in moves.mapped('inalterable_hash'))
+
+    def test_wizard_ignores_journals_with_unreconciled_entries(self):
+        """
+        Test that the wizard does not hash journals containing unreconciled bank statement lines.
+        """
+        self.env['account.bank.statement.line'].create({
+            'journal_id': self.company_data['default_journal_bank'].id,
+            'date': '2016-01-01',
+            'payment_ref': 'test',
+            'amount': 10.0,
+        })
+
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2016-01-01'})
+        self.assertFalse(wizard.move_ids)
+        self.assertFalse(wizard.move_to_hash_ids)
+
+    def test_wizard_backwards_compatibility(self):
+        """
+        The wizard was introduced in odoo 17.5 when the hash version was 4.
+        We check that:
+          * We do not hash unhashed moves before the start of the hash sequence
+          * The wizard displays information about the date of the first unhashed move:
+            This excludes moves before the hard lock date.
+        """
+        # Let's simulate v3 where the hash was on post and not retroactive
+        # First let's create some moves that shouldn't be hashed (before restrict mode)
+        secure_sequence = self._get_secure_sequence()
+        moves_v3_pre_restrict_mode = self.env['account.move']
+        for _ in range(3):
+            moves_v3_pre_restrict_mode |= self.init_invoice("out_invoice", self.partner_a, "2024-01-01", amounts=[1000, 2000], post=True)
+
+        self.company_data['default_journal_sale'].restrict_mode_hash_table = True
+
+        # Now create some moves in v3 that should be hashed on post and have a secure_sequence_id
+        moves_v3_post_restrict_mode = self.env['account.move']
+        last_hash = ""
+        for _ in range(3):
+            move = self.init_invoice("out_invoice", self.partner_a, "2024-01-02", amounts=[1000, 2000], post=False)
+            move.with_context(skip_hash_moves=True).action_post()
+            move.inalterable_hash = move.with_context(hash_version=3)._calculate_hashes(last_hash)[move]
+            last_hash = move.inalterable_hash
+            move.secure_sequence_number = secure_sequence.next_by_id()
+            moves_v3_post_restrict_mode |= move
+
+        moves_v4 = self.init_invoice("out_invoice", self.partner_a, "2024-01-03", amounts=[1000], post=False)
+        moves_v4 |= self.init_invoice("out_invoice", self.partner_a, "2024-01-03", amounts=[1000], post=False)
+        moves_v4 |= self.init_invoice("out_invoice", self.partner_a, "2024-01-03", amounts=[1000], post=False)
+        moves_v4.with_context(skip_hash_moves=True).action_post()
+
+        for move in moves_v3_pre_restrict_mode | moves_v4:
+            self.assertFalse(move.inalterable_hash)
+
+        # We cannot hash the moves_v3_pre_restrict_mode because the moves_v3_post_restrict_mode are hashed
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2024-01-03'})
+        self.assertEqual(wizard.not_hashable_move_ids, moves_v3_pre_restrict_mode)
+        self.assertEqual(wizard.move_to_hash_ids, moves_v4)
+
+        # We can still hash the remaining moves
+        with self.subTest(msg="Hash the remaining moves"), self.env.cr.savepoint() as sp:
+            wizard.action_secure_entries()
+            for move in moves_v3_pre_restrict_mode:
+                self.assertFalse(move.inalterable_hash)
+            for move in moves_v4:
+                self.assertNotEqual(move.inalterable_hash, False)
+            sp.close()  # Rollback
+
+        # We can ignore the moves by setting the hard lock date:
+        self.assertEqual(wizard.max_hash_date, fields.Date.from_string("2023-12-31"))
+        self.company_data['company'].hard_lock_date = "2024-01-01"
+        # There is nothing to hash
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2024-01-03'})
+        self.assertEqual(wizard.max_hash_date, fields.Date.from_string("2024-01-02"))
+        self.assertFalse(wizard.not_hashable_move_ids)
+        self.assertEqual(wizard.move_to_hash_ids, moves_v4)
