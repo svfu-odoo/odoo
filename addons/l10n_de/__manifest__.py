@@ -6,7 +6,7 @@
     'icon': '/account/static/description/l10n.png',
     'countries': ['de'],
     'author': 'openbig.org (http://www.openbig.org)',
-    'version': '2.0',
+    'version': '2.1',
     'website': 'https://www.odoo.com/documentation/master/applications/finance/fiscal_localizations/germany.html',
     'category': 'Accounting/Localizations/Account Charts',
     'description': """
@@ -26,6 +26,7 @@ German accounting chart and localization.
         'data/account_account_tags_data.xml',
         'views/account_view.xml',
         'views/res_company_views.xml',
+        'views/account_move_views.xml',
     ],
     'demo': [
         'demo/demo_company.xml',
