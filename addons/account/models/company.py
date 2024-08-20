@@ -397,9 +397,9 @@ class ResCompany(models.Model):
         for account in accounts:
             account.write({'code': self.get_new_account_code(account.code, old_code, new_code)})
 
-    def _get_fiscalyear_lock_statement_lines_redirect_action(self, unreconciled_statement_lines):
-        """ Get the action redirecting to the statement lines that are not already reconciled when setting a fiscal
-        year lock date.
+    def _get_unreconciled_statement_lines_redirect_action(self, unreconciled_statement_lines):
+        """ Get the action redirecting to the statement lines that are not already reconciled.
+        It can i.e. be used when setting a fiscal year lock date or hashing all entries until a certain date.
 
         :param unreconciled_statement_lines: The statement lines.
         :return: A dictionary representing a window action.
@@ -422,6 +422,14 @@ class ResCompany(models.Model):
                 'domain': [('id', 'in', unreconciled_statement_lines.ids)],
             })
         return action
+
+    def _get_unreconciled_statement_lines_domain(self, last_date):
+        return [
+            ('company_id', 'child_of', self.ids),
+            ('is_reconciled', '=', False),
+            ('date', '<=', last_date),
+            ('move_id.state', 'in', ('draft', 'posted')),
+        ]
 
     def _validate_locks(self, values):
         """Check that the lock date changes are valid.
@@ -469,16 +477,13 @@ class ResCompany(models.Model):
 
         # Check for unreconciled bank statement lines
         if fiscal_lock_date:
-            unreconciled_statement_lines = self.env['account.bank.statement.line'].search([
-                ('company_id', 'child_of', self.ids),
-                ('is_reconciled', '=', False),
-                ('date', '<=', fiscal_lock_date),
-                ('move_id.state', 'in', ('draft', 'posted')),
-            ])
+            unreconciled_statement_lines = self.env['account.bank.statement.line'].search(
+                self._get_unreconciled_statement_lines_domain(fiscal_lock_date)
+            )
             if unreconciled_statement_lines:
                 error_msg = _("There are still unreconciled bank statement lines in the period you want to lock."
                             "You should either reconcile or delete them.")
-                action_error = self._get_fiscalyear_lock_statement_lines_redirect_action(unreconciled_statement_lines)
+                action_error = self._get_unreconciled_statement_lines_redirect_action(unreconciled_statement_lines)
                 raise RedirectWarning(error_msg, action_error, _('Show Unreconciled Bank Statement Line'))
 
         # Check for unhashed journal entries
