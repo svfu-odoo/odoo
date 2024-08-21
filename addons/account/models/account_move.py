@@ -1530,7 +1530,7 @@ class AccountMove(models.Model):
         for move in self:
             move.has_reconciled_entries = len(move.line_ids._reconciled_lines()) > 1
 
-    @api.depends('restrict_mode_hash_table', 'state', 'is_move_sent')
+    @api.depends('restrict_mode_hash_table', 'state')
     def _compute_show_reset_to_draft_button(self):
         for move in self:
             move.show_reset_to_draft_button = (
@@ -2904,9 +2904,8 @@ class AccountMove(models.Model):
 
                 if vals.get('state') == 'posted':
                     self.flush_recordset()  # Ensure that the name is correctly computed
-
-                if vals.get('is_move_sent'):
-                    self._hash_moves()
+                    if not self.env.context.get('skip_hash_moves'):  # for tests
+                        self._hash_moves()
 
             self._synchronize_business_models(set(vals.keys()))
 
@@ -3448,23 +3447,36 @@ class AccountMove(models.Model):
 
     @api.model
     def _get_move_hash_domain(self, common_domain=False, force_hash=False):
+        """
+        Returns a search domain on model account.move checking whether they should be hashed.
+        :param common_domain: a search domain that will be included in the returned domain in any case
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
+        """
         common_domain = expression.AND([
             common_domain or [],
-            [('restrict_mode_hash_table', '=', True)]
+            [('state', '=', 'posted')],
         ])
         if force_hash:
-            return expression.AND([common_domain, [('state', '=', 'posted')]])
+            return common_domain
         return expression.AND([
             common_domain,
-            [('move_type', 'in', self.get_sale_types(include_receipts=True)), ('is_move_sent', '=', True)]
+            [('restrict_mode_hash_table', '=', True)],
         ])
 
     @api.model
     def _is_move_restricted(self, move, force_hash=False):
-        return move.filtered_domain(self._get_move_hash_domain(force_hash=force_hash))
+        """
+        Returns whether a move is hashed or should be hashed.
+        :param move: the account.move we check
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
+        """
+        return move.filtered_domain(expression.OR([
+            self._get_move_hash_domain(force_hash=force_hash),
+            [('inalterable_hash', '!=', False)],
+        ]))
 
-    def _hash_moves(self, force_hash=False):
-        chains_to_hash = self._get_chains_to_hash(force_hash=force_hash)
+    def _hash_moves(self, **kwargs):
+        chains_to_hash = self._get_chains_to_hash(**kwargs)
         for chain in chains_to_hash:
             move_hashes = chain['moves']._calculate_hashes(chain['previous_hash'])
             for move, move_hash in move_hashes.items():
@@ -3477,7 +3489,7 @@ class AccountMove(models.Model):
         into account the last move of each chain of the recordset.
         So if we have INV/1, INV/2, INV/3, INV4 that are not hashed yet in the database
         but self contains INV/2, INV/3, we will return INV/1, INV/2 and INV/3. Not INV/4.
-        :param force_hash: if True, we'll check all moves posted, independently of whether they were sent or not
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
         :param raise_if_gap: if True, we'll raise an error if a gap is detected in the sequence
         :param raise_if_no_document: if True, we'll raise an error if no document needs to be hashed
         :param include_pre_last_hash: if True, we'll include the moves not hashed that are previous to the last hashed move
@@ -3515,7 +3527,7 @@ class AccountMove(models.Model):
                         return True
                     continue
                 moves_to_hash = self.env['account.move'].sudo().search(domain, order='sequence_number')
-                if not moves_to_hash and force_hash and raise_if_no_document:
+                if not moves_to_hash and raise_if_no_document:
                     raise UserError(_(
                         "This move could not be locked either because "
                         "some move with the same sequence prefix has a higher number. You may need to resequence it."
@@ -4825,7 +4837,7 @@ class AccountMove(models.Model):
                 # (we need both, as tax_cash_basis_origin_move_id did not exist in older versions).
                 raise UserError(_('You cannot reset to draft a tax cash basis journal entry.'))
             if move.inalterable_hash:
-                raise UserError(_('You cannot modify a sent entry of this journal because it is in strict mode.'))
+                raise UserError(_('You cannot reset to draft a locked journal entry.'))
 
     def button_hash(self):
         self._hash_moves(force_hash=True)
