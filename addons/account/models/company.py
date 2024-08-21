@@ -900,7 +900,7 @@ class ResCompany(models.Model):
         return self.env.ref('account.action_report_account_hash_integrity').report_action(self.id)
 
     def _check_hash_integrity(self):
-        """Checks that all posted moves have still the same data as when they were posted
+        """Checks that all hashed moves have still the same data as when they were hashed
         and raises an error with the result.
         """
         if not self.env.user.has_group('account.group_account_user'):
