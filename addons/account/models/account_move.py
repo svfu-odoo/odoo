@@ -271,6 +271,11 @@ class AccountMove(models.Model):
     restrict_mode_hash_table = fields.Boolean(related='journal_id.restrict_mode_hash_table')
     secure_sequence_number = fields.Integer(string="Inalterability No Gap Sequence #", readonly=True, copy=False, index=True)
     inalterable_hash = fields.Char(string="Inalterability Hash", readonly=True, copy=False, index='btree_not_null')
+    secured = fields.Boolean(
+        compute="_compute_secured",
+        search='_search_secured',
+        help="The entry is secured with an inalterable hash."
+    )
 
     # ==============================================================================================
     #                                          INVOICE
@@ -879,6 +884,21 @@ class AccountMove(models.Model):
 
         for record in self:
             record.type_name = type_name_mapping[record.move_type]
+
+    @api.depends('inalterable_hash')
+    def _compute_secured(self):
+        for move in self:
+            move.secured = bool(move.inalterable_hash)
+
+    def _search_secured(self, operator, value):
+        if operator not in ['=', '!=']:
+            raise UserError(_('Operation not supported'))
+
+        normal_domain_for_equals = [('inalterable_hash', '!=' if value is True else '=', False)]
+        if operator == '=':
+            return normal_domain_for_equals
+        else:
+            return ['!'] + normal_domain_for_equals
 
     @api.depends('line_ids.account_id.account_type')
     def _compute_always_tax_exigible(self):

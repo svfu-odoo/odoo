@@ -239,6 +239,8 @@ class AccountSecureEntries(models.TransientModel):
 
         self.validate_hash_date()
 
+        self.env['res.groups']._activate_group_account_secured()
+
         if not self.move_to_hash_ids:
             return
 

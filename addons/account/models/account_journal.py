@@ -674,6 +674,9 @@ class AccountJournal(models.Model):
             for journal in self.filtered(lambda r: r.type == 'bank' and not r.bank_account_id):
                 journal.set_bank_account(vals.get('bank_acc_number'), vals.get('bank_id'))
 
+        if True in [journal.restrict_mode_hash_table for journal in self]:
+            self.env['res.groups']._activate_group_account_secured()
+
         return result
 
     def _alias_get_creation_values(self):
@@ -872,6 +875,9 @@ class AccountJournal(models.Model):
             # Create the bank_account_id if necessary
             if journal.type == 'bank' and not journal.bank_account_id and vals.get('bank_acc_number'):
                 journal.set_bank_account(vals.get('bank_acc_number'), vals.get('bank_id'))
+
+        if True in [journal.restrict_mode_hash_table for journal in journals]:
+            self.env['res.groups']._activate_group_account_secured()
 
         return journals
 
