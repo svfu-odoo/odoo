@@ -678,6 +678,12 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
         wizard.action_secure_entries()
         self.assertTrue(False not in moves.mapped('inalterable_hash'))
 
+    def test_wizard_ignores_journals_with_unreconciled_entries(self):
+        """
+        Test that the wizard does not hash journals containing unreconciled bank statement lines.
+        """
+        self.assertTrue(False)  # TODO: to implement
+
     def test_wizard_backwards_compatibility(self):
         """
         The wizard was introduced in odoo 17.5 when the hash version was 4.

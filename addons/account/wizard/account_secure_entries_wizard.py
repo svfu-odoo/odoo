@@ -32,16 +32,24 @@ class AccountSecureEntries(models.TransientModel):
         compute='_compute_max_hash_date',
         help="Highest Date such that all posted journal entries prior to (including) the date are secured. Only journal entries after the hard lock date are considered."
     )
-    not_hashable_move_ids = fields.Many2many(
-        compute='_compute_move_ids',
-        comodel_name='account.move'
+    unreconciled_bank_statement_line_ids = fields.Many2many(
+        compute='_compute_data',
+        comodel_name='account.bank.statement.line'
+    )
+    unreconciled_journal_ids = fields.Many2many(
+        compute='_compute_data',
+        comodel_name='account.journal'
     )
     move_ids = fields.Many2many(
-        compute='_compute_move_ids',
+        compute='_compute_data',
+        comodel_name='account.move'
+    )
+    not_hashable_move_ids = fields.Many2many(
+        compute='_compute_data',
         comodel_name='account.move'
     )
     move_to_hash_ids = fields.Many2many(
-        compute='_compute_move_ids',
+        compute='_compute_data',
         comodel_name='account.move'
     )
     warnings = fields.Json(
@@ -69,10 +77,11 @@ class AccountSecureEntries(models.TransientModel):
                 wizard.max_hash_date = False
 
     @api.model
-    def _get_move_ids(self, company_id, hash_date):
+    def _get_move_ids(self, company_id, hash_date, extra_domain=None):
         self.ensure_one()
+        extra_domain = expression.AND([extra_domain or [], [('state', '=', 'posted')]])
         moves = self.env['account.move'].sudo().search(
-            self._get_unhashed_moves_in_hashed_period_domain(company_id, hash_date, [('state', '=', 'posted')])
+            self._get_unhashed_moves_in_hashed_period_domain(company_id, hash_date, extra_domain)
         )
         move_ids = []
         not_hashable_move_ids = []
@@ -100,13 +109,23 @@ class AccountSecureEntries(models.TransientModel):
         return move_ids, not_hashable_move_ids
 
     @api.depends('company_id', 'company_id.user_hard_lock_date', 'hash_date')
-    def _compute_move_ids(self):
+    def _compute_data(self):
         for wizard in self:
             move_ids = []
             not_hashable_move_ids = []
+            unreconciled_bank_statement_line_ids = []
+            unreconciled_journal_ids = []
             if wizard.hash_date:
-                move_ids, not_hashable_move_ids = wizard._get_move_ids(wizard.company_id, wizard.hash_date)
+                unreconciled_bank_statement_lines = self.env['account.bank.statement.line'].search(
+                    self.company_id._get_unreconciled_statement_lines_domain(self.hash_date)
+                )
+                unreconciled_bank_statement_line_ids = unreconciled_bank_statement_lines.ids
+                unreconciled_journal_ids = unreconciled_bank_statement_lines.journal_id.ids
+                extra_domain = [('journal_id', 'not in', unreconciled_journal_ids)]
+                move_ids, not_hashable_move_ids = wizard._get_move_ids(wizard.company_id, wizard.hash_date, extra_domain=extra_domain)
             wizard.move_ids = [Command.set(move_ids)]
+            wizard.unreconciled_bank_statement_line_ids = [Command.set(unreconciled_bank_statement_line_ids)]
+            wizard.unreconciled_journal_ids = [Command.set(unreconciled_journal_ids)]
             wizard.not_hashable_move_ids = [Command.set(not_hashable_move_ids)]
             wizard.move_to_hash_ids = wizard.move_ids - wizard.not_hashable_move_ids
 
@@ -126,6 +145,15 @@ class AccountSecureEntries(models.TransientModel):
             if not wizard.hash_date:
                 wizard.warnings = warnings
                 continue
+
+            if wizard.unreconciled_bank_statement_line_ids:
+                warnings['account_unreconciled_bank_statement_line_ids'] = {
+                    'message': _("There are still unreconciled bank statement lines in the period you want to secure. "
+                                 "The Journals containing them will not be secured: %(journal_info)s",
+                                 journal_info=format_list(self.env, wizard.unreconciled_journal_ids.mapped('name'))),
+                    'action_text': _("Review "),
+                    'action': wizard.company_id._get_unreconciled_statement_lines_redirect_action(wizard.unreconciled_bank_statement_line_ids),
+                }
 
             if wizard.not_hashable_move_ids:
                 warnings['account_not_hashable_move'] = {
@@ -219,25 +247,11 @@ class AccountSecureEntries(models.TransientModel):
             'views': [[self.env.ref('account.view_move_tree_multi_edit').id, 'list'], [self.env.ref('account.view_move_form').id, 'form']],
         }
 
-    def validate_hash_date(self):
+    def action_secure_entries(self):
         self.ensure_one()
 
         if not self.hash_date:
             raise UserError(_("Set a date. The moves will be secured up to including this date."))
-
-        unreconciled_statement_lines = self.env['account.bank.statement.line'].search(
-            self.company_id._get_unreconciled_statement_lines_domain(self.hash_date)
-        )
-        if unreconciled_statement_lines:
-            error_msg = _("There are still unreconciled bank statement lines in the period you want to secure."
-                          "You should either reconcile or delete them.")
-            action_error = self.company_id._get_unreconciled_statement_lines_redirect_action(unreconciled_statement_lines)
-            raise RedirectWarning(error_msg, action_error, _('Show Unreconciled Bank Statement Line'))
-
-    def action_secure_entries(self):
-        self.ensure_one()
-
-        self.validate_hash_date()
 
         self.env['res.groups']._activate_group_account_secured()
 
