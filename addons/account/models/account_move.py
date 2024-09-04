@@ -3490,7 +3490,7 @@ class AccountMove(models.Model):
             move_hashes = chain['moves']._calculate_hashes(chain['previous_hash'])
             for move, move_hash in move_hashes.items():
                 move.inalterable_hash = move_hash
-            chain['moves']._message_log_batch(bodies={m.id: _("This move has been locked.") for m in chain['moves']})
+            chain['moves']._message_log_batch(bodies={m.id: _("This move has been secured.") for m in chain['moves']})
 
     def _get_chains_to_hash(self, force_hash=False, raise_if_gap=True, raise_if_no_document=True, include_pre_last_hash=False, early_stop=False):
         """
