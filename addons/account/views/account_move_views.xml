@@ -329,9 +329,6 @@
                     <separator/>
                     <filter string="Unposted" name="unposted" domain="[('parent_state', '=', 'draft')]" help="Unposted Journal Items"/>
                     <filter string="Posted" name="posted" domain="[('parent_state', '=', 'posted')]" help="Posted Journal Items"/>
-                    <separator groups="account.group_account_secured,base.group_no_one"/>
-                    <filter name="not_secured" string="Not Secured" domain="[('secured', '=', False), ('state', '=', 'posted')]"
-                            groups="account.group_account_secured,base.group_no_one"/>
                     <separator/>
                     <filter string="To check" name="to_check" domain="[('move_id.checked', '=', False), ('parent_state', '!=', 'draft')]"/>
                     <separator/>
@@ -1483,6 +1480,9 @@
                     <field name="journal_id"/>
                     <filter string="Unposted" name="unposted" domain="[('state', '=', 'draft')]" help="Unposted Journal Entries"/>
                     <filter string="Posted" name="posted" domain="[('state', '=', 'posted')]" help="Posted Journal Entries"/>
+                    <separator groups="account.group_account_secured,base.group_no_one"/>
+                    <filter name="not_secured" string="Not Secured" domain="[('secured', '=', False), ('state', '=', 'posted')]"
+                            groups="account.group_account_secured,base.group_no_one"/>
                     <separator/>
                     <filter string="Reversed" name="reversed" domain="[('payment_state', '=', 'reversed')]"/>
                     <separator/>
