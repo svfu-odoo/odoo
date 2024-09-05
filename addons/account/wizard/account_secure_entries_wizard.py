@@ -21,32 +21,35 @@ class AccountSecureEntries(models.TransientModel):
         default=lambda self: self.env.company,
     )
     country_code = fields.Char(
-        related="company_id.account_fiscal_country_id.code"
+        related="company_id.account_fiscal_country_id.code",
     )
     hash_date = fields.Date(
         string='Hash All Entries',
         required=True,
+        help="The selected Date",
+    )
+    chains_to_hash_with_gaps= fields.Json(
+        compute='_compute_data',
     )
     max_hash_date = fields.Date(
         string='Max Hash Date',
         compute='_compute_max_hash_date',
-        help="Highest Date such that all posted journal entries prior to (including) the date are secured. Only journal entries after the hard lock date are considered."
+        help="Highest Date such that all posted journal entries prior to (including) the date are secured. Only journal entries after the hard lock date are considered.",
     )
     unreconciled_bank_statement_line_ids = fields.Many2many(
         compute='_compute_data',
-        comodel_name='account.bank.statement.line'
+        comodel_name='account.bank.statement.line',
+        help="All unreconciled bank statement lines before the selected date.",
     )
-    move_ids = fields.Many2many(
+    not_hashable_unlocked_move_ids = fields.Many2many(
         compute='_compute_data',
-        comodel_name='account.move'
-    )
-    not_hashable_move_ids = fields.Many2many(
-        compute='_compute_data',
-        comodel_name='account.move'
+        comodel_name='account.move',
+        help="All unhashable moves before the selected date that are not protected by the Hard Lock Date",
     )
     move_to_hash_ids = fields.Many2many(
         compute='_compute_data',
-        comodel_name='account.move'
+        comodel_name='account.move',
+        help="All moves that will be hashed",
     )
     warnings = fields.Json(
         compute='_compute_warnings',
@@ -65,69 +68,81 @@ class AccountSecureEntries(models.TransientModel):
     def _compute_max_hash_date(self):
         today = fields.Date.context_today(self)
         for wizard in self:
-            move_ids, _not_hashable_move_ids = wizard._get_move_ids(wizard.company_id, today)
-            moves = self.env['account.move'].browse(move_ids)
+            chains_to_hash = wizard._get_chains_to_hash(wizard.company_id, today)
+            moves = self.env['account.move'].concat(
+                *[chain['moves'] for chain in chains_to_hash],
+                *[chain['not_hashable_unlocked_moves'] for chain in chains_to_hash],
+            )
             if moves:
                 wizard.max_hash_date = min(move.date for move in moves) - timedelta(days=1)
             else:
                 wizard.max_hash_date = False
 
     @api.model
-    def _get_move_ids(self, company_id, hash_date, extra_domain=None):
+    def _jsonify_chains_to_hash(self, chains_to_hash):
         self.ensure_one()
+        return [{key}]
+
+    @api.model
+    def _get_chains_to_hash(self, company_id, hash_date, extra_domain=None):
+        self.ensure_one()
+        res = []
         extra_domain = expression.AND([extra_domain or [], [('state', '=', 'posted')]])
         moves = self.env['account.move'].sudo().search(
             self._get_unhashed_moves_in_hashed_period_domain(company_id, hash_date, extra_domain)
         )
-        move_ids = []
-        not_hashable_move_ids = []
         for journal, journal_moves in moves.grouped('journal_id').items():
             for chain_moves in journal_moves.grouped('sequence_prefix').values():
-                last_move_in_chain = chain_moves.sorted('sequence_number')[-1]
-                if not self.env['account.move']._is_move_restricted(last_move_in_chain, force_hash=True):
+                chain_info = chain_moves._get_chain_info(force_hash=True)
+                if chain_info is False:
                     continue
-                last_move_hashed = self.env['account.move'].sudo().search([
-                    ('journal_id', '=', journal.id),
-                    ('sequence_prefix', '=', last_move_in_chain.sequence_prefix),
-                    ('inalterable_hash', '!=', False),
-                ], order='sequence_number desc', limit=1)
-                # We ignore unhashed moves inside the sequence if they are protected by the hard lock date
-                # TODO: what happens if no last_move_hashed found?
+                last_move_hashed = chain_info['last_move_hashed']
+                # It is possible that some moves cannot be hashed (i.e. after upgrade).
+                # We show a warning ('account_not_hashable_unlocked_moves') if that is the case.
+                # These moves are ignored for the warning and max_hash_date in case they are protected by the Hard Lock Date
                 if last_move_hashed:
-                    chain_moves_to_hash = chain_moves.filtered_domain([
-                        '|',
-                            ('sequence_number', '>=', last_move_hashed.sequence_number),
-                            ('date', '>', self.company_id.user_hard_lock_date),
-                       ])
+                    # remaining_moves either have a hash already or have a higher sequence_number than the last_move_hashed
+                    not_hashable_unlocked_moves = chain_info['remaining_moves'].filtered(
+                        lambda move: (not move.inalterable_hash
+                                      and move.sequence_number < last_move_hashed.sequence_number
+                                      and move.date > self.company_id.user_hard_lock_date)
+                    )
                 else:
-                    chain_moves_to_hash = chain_moves
-                # TODO: ?: add the last move hashed for the gap test
-                move_ids.extend(chain_moves_to_hash.ids)
-                not_hashable_moves = chain_moves_to_hash.filtered_domain([
-                    ('sequence_number', '<', last_move_hashed.sequence_number),
-                ])
-                not_hashable_move_ids.extend(not_hashable_moves.ids)
-        return move_ids, not_hashable_move_ids
+                    not_hashable_unlocked_moves = self.env['account.move']
+                chain_info['not_hashable_unlocked_moves'] = not_hashable_unlocked_moves
+                res.append(chain_info)
+                # res[(journal, chain_moves[0].sequence_prefix)] = chain_info
+        return res
 
     @api.depends('company_id', 'company_id.user_hard_lock_date', 'hash_date')
     def _compute_data(self):
         for wizard in self:
-            move_ids = []
-            not_hashable_move_ids = []
             unreconciled_bank_statement_line_ids = []
+            chains_to_hash = []
             if wizard.hash_date:
                 unreconciled_bank_statement_lines = self.env['account.bank.statement.line'].search(
                     wizard.company_id._get_unreconciled_statement_lines_domain(wizard.hash_date)
                 )
                 unreconciled_bank_statement_line_ids = unreconciled_bank_statement_lines.ids
                 extra_domain = [('sequence_prefix', 'not in', unreconciled_bank_statement_lines.move_id.mapped('sequence_prefix'))]
-                move_ids, not_hashable_move_ids = wizard._get_move_ids(wizard.company_id, wizard.hash_date, extra_domain=extra_domain)
-            wizard.move_ids = [Command.set(move_ids)]
+                chains_to_hash = wizard._get_chains_to_hash(wizard.company_id, wizard.hash_date, extra_domain=extra_domain)
             wizard.unreconciled_bank_statement_line_ids = [Command.set(unreconciled_bank_statement_line_ids)]
-            wizard.not_hashable_move_ids = [Command.set(not_hashable_move_ids)]
-            wizard.move_to_hash_ids = wizard.move_ids - wizard.not_hashable_move_ids
+            wizard.chains_to_hash_with_gaps = [
+                {
+                    'first_move_id': chain['moves'][0].id,
+                    'last_move_id': chain['moves'][-1].id,
+                } for chain in chains_to_hash if 'gap' in chain['warnings']
+            ]
 
-    @api.depends('company_id', 'hash_date', 'not_hashable_move_ids', 'max_hash_date')
+            not_hashable_unlocked_moves = []
+            move_to_hash_ids = []
+            for chain in chains_to_hash:
+                not_hashable_unlocked_moves.extend(chain['not_hashable_unlocked_moves'].ids)
+                move_to_hash_ids.extend(chain['moves'].ids)
+            wizard.not_hashable_unlocked_move_ids = [Command.set(not_hashable_unlocked_moves)]
+            wizard.move_to_hash_ids = [Command.set(move_to_hash_ids)]
+
+    @api.depends('company_id', 'chains_to_hash_with_gaps', 'hash_date', 'not_hashable_unlocked_move_ids', 'max_hash_date', 'unreconciled_bank_statement_line_ids')
     def _compute_warnings(self):
         for wizard in self:
             warnings = {}
@@ -155,13 +170,6 @@ class AccountSecureEntries(models.TransientModel):
                     'action': wizard.company_id._get_unreconciled_statement_lines_redirect_action(wizard.unreconciled_bank_statement_line_ids),
                 }
 
-            if wizard.not_hashable_move_ids:
-                warnings['account_not_hashable_move'] = {
-                    'message': _("There are entries that cannot be hashed. They can be protected by via the Hard Lock Date."),
-                    'action_text': _("Review"),
-                    'action': wizard.action_show_moves(wizard.not_hashable_move_ids),
-                }
-
             draft_entries = self.env['account.move'].search_count(
                 wizard._get_draft_moves_in_hashed_period_domain(),
                 limit=1
@@ -173,30 +181,36 @@ class AccountSecureEntries(models.TransientModel):
                     'action': wizard.action_show_draft_moves_in_hashed_period(),
                 }
 
-            gaps = wizard.move_to_hash_ids._get_gaps()
-            if gaps:
-                # TODO: remove:
-                # Version where we only put the whole chain
-                # gap_strings = []
-                # for (seq_format, format_values), (first, last) in gaps.items():
-                #     chain_first = seq_format.format(**{**format_values, 'seq': first})
-                #     chain_last = seq_format.format(**{**format_values, 'seq': last})
-                #     gap_strings.append(_("between %(chain_first)s and %(chain_last)s", chain_first=chain_first, chain_last=chain_last))
-                # warnings['account_sequence_gap'] = {
-                #     'message': _("Securing these entries will create at least one gap in the sequence: %(gap_info)s",
-                #                  gap_info=format_list(self.env, gap_strings)),
-                # }
+            not_hashable_unlocked_moves = wizard.not_hashable_unlocked_move_ids
+            if not_hashable_unlocked_moves:
+                warnings['account_not_hashable_unlocked_moves'] = {
+                    'message': _("There are entries that cannot be hashed. They can be protected by the Hard Lock Date."),
+                    'action_text': _("Review"),
+                    'action': wizard.action_show_moves(not_hashable_unlocked_moves),
+                }
 
-                gap_strings = []
-                for (seq_format, format_values), gap_list in gaps.items():
-                    for predecessor_seq, seq in gap_list:
-                        record = seq_format.format(**{**format_values, 'seq': seq})
-                        predecessor_record = seq_format.format(**{**format_values, 'seq': predecessor_seq})
-                        gap_strings.append(_("between %(predecessor_record)s and %(record)s",
-                                             record=record, predecessor_record=predecessor_record))
+            # chains_to_hash = wizard.chains_to_hash or []
+            # chains_with_gaps = [chain for chain in chains_to_hash if 'gap' in chain['warnings']]
+            if wizard.chains_to_hash_with_gaps:
+                OR_domains = []
+                for chain in wizard.chains_to_hash_with_gaps:
+                    first_move = self.env['account.move'].browse(chain['first_move_id'])
+                    last_move = self.env['account.move'].browse(chain['last_move_id'])
+                    OR_domains.append([
+                        *self.env['account.move']._check_company_domain(wizard.company_id),
+                        ('journal_id', '=', last_move.journal_id.id),
+                        ('sequence_prefix', '=', last_move.sequence_prefix),
+                        ('sequence_number', '<=', last_move.sequence_number),
+                        ('sequence_number', '>=', first_move.sequence_number),
+                    ])
+                domain = expression.OR(OR_domains)
                 warnings['account_sequence_gap'] = {
-                    'message': _("Securing these entries will create at least one gap in the sequence: %(gap_info)s",
-                                 gap_info=format_list(self.env, gap_strings)),
+                    'message': _("Securing these entries will create at least one gap in the sequence."),
+                    'action_text': _("Review"),
+                    'action': {
+                        **self.env['account.journal']._show_sequence_holes(domain),
+                        'views': [[self.env.ref('account.view_move_tree_multi_edit').id, 'list'], [self.env.ref('account.view_move_form').id, 'form']],
+                    }
                 }
 
             wizard.warnings = warnings
