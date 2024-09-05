@@ -3531,7 +3531,7 @@ class AccountMove(models.Model):
                     if first + difference != last:
                         raise UserError(_(
                             "An error occurred when computing the inalterability. A gap has been detected in the sequence."
-                           ))
+                        ))
 
                 res.append({
                     'previous_hash': last_move_hashed.inalterable_hash,
