@@ -682,20 +682,41 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
         wizard.action_secure_entries()
         self.assertTrue(False not in moves.mapped('inalterable_hash'))
 
-    def test_wizard_ignores_journals_with_unreconciled_entries(self):
+    def test_wizard_ignores_sequence_prefixes_with_unreconciled_entries(self):
         """
-        Test that the wizard does not hash journals containing unreconciled bank statement lines.
+        Test that the wizard does not hash sequence prefixes containing unreconciled bank statement lines.
+        But it should still hash the remaining sequence prefixes from the same journal.
         """
-        self.env['account.bank.statement.line'].create({
+        # Create 2 reconciled moves from different sequences
+        reconciled_bank_statement_line_2016 = self.env['account.bank.statement.line'].create({
             'journal_id': self.company_data['default_journal_bank'].id,
             'date': '2016-01-01',
-            'payment_ref': 'test',
+            'payment_ref': '2016_reconciled',
+            'amount': 0.0,  # reconciled
+        })
+        reconciled_bank_statement_line_2017 = self.env['account.bank.statement.line'].create({
+            'journal_id': self.company_data['default_journal_bank'].id,
+            'date': '2017-01-01',
+            'payment_ref': '2017_reconciled',
+            'amount': 0.0,  # reconciled
+        })
+
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2017-01-01'})
+        reconciled_bank_statement_lines = reconciled_bank_statement_line_2016 | reconciled_bank_statement_line_2017
+        self.assertFalse(wizard.unreconciled_bank_statement_line_ids)
+        self.assertEqual(wizard.move_to_hash_ids, reconciled_bank_statement_lines.move_id)
+
+        # Create an unreconciled move for the 2017 prefix
+        unreconciled_bank_statement_line_2017 = self.env['account.bank.statement.line'].create({
+            'journal_id': self.company_data['default_journal_bank'].id,
+            'date': '2017-01-01',
+            'payment_ref': '2017_unreconciled',
             'amount': 10.0,
         })
 
-        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2016-01-01'})
-        self.assertFalse(wizard.move_ids)
-        self.assertFalse(wizard.move_to_hash_ids)
+        wizard = self.env['account.secure.entries.wizard'].create({'hash_date': '2017-01-01'})
+        self.assertEqual(wizard.unreconciled_bank_statement_line_ids, unreconciled_bank_statement_line_2017)
+        self.assertEqual(wizard.move_to_hash_ids, reconciled_bank_statement_line_2016.move_id)
 
     def test_wizard_backwards_compatibility(self):
         """
