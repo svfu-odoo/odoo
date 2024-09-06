@@ -902,14 +902,11 @@ class AccountMove(models.Model):
             move.secured = bool(move.inalterable_hash)
 
     def _search_secured(self, operator, value):
-        if operator not in ['=', '!=']:
+        if operator not in ['=', '!='] or value not in [True, False]:
             raise UserError(_('Operation not supported'))
 
-        normal_domain_for_equals = [('inalterable_hash', '!=' if value is True else '=', False)]
-        if operator == '=':
-            return normal_domain_for_equals
-        else:
-            return ['!'] + normal_domain_for_equals
+        want_secured = (operator == '=') == value
+        return [('inalterable_hash', '!=' if want_secured else '=', False)]
 
     @api.depends('line_ids.account_id.account_type')
     def _compute_always_tax_exigible(self):
