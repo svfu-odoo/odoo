@@ -5,12 +5,12 @@ import { statusBarField, StatusBarField } from "@web/views/fields/statusbar/stat
 export class AccountMoveStatusBarSecuredField extends StatusBarField {
     static template = "account.MoveStatusBarSecuredField";
 
-    isSecured() {
+    get isSecured() {
         return this.props.record.data['secured'];
     }
 
     getCurrentItem() {
-        return this.getAllItems().find((item) => item.isSelected) || _t("More");
+        return this.getAllItems().find((item) => item.isSelected);
     }
 }
 
