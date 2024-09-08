@@ -55,8 +55,8 @@ class AccountSecureEntries(models.TransientModel):
         compute='_compute_warnings',
     )
 
-    def new(self, *args, **kwargs):
-        res = super().new(*args, **kwargs)
+    def new(self, values=None, origin=None, ref=None):
+        res = super().new(values=values, origin=origin, ref=ref)
         for wizard in res:
             if not wizard.company_id:
                 wizard.company_id = self.env.company
