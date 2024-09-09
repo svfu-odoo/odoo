@@ -699,7 +699,7 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
 
     def test_wizard_ignores_sequence_prefixes_with_unreconciled_entries(self):
         """
-        Test that the wizard does not hash sequence prefixes containing unreconciled bank statement lines.
+        Test that the wizard does not try to hash sequence prefixes containing unreconciled bank statement lines.
         But it should still hash the remaining sequence prefixes from the same journal.
         """
         # Create 2 reconciled moves from different sequences

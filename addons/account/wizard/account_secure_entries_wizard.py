@@ -79,18 +79,18 @@ class AccountSecureEntries(models.TransientModel):
                 wizard.max_hash_date = False
 
     @api.model
-    def _get_chains_to_hash(self, company_id, hash_date, extra_domain=None):
+    def _get_chains_to_hash(self, company_id, hash_date):
         self.ensure_one()
         res = []
-        extra_domain = expression.AND([extra_domain or [], [('state', '=', 'posted')]])
         moves = self.env['account.move'].sudo().search(
-            self._get_unhashed_moves_in_hashed_period_domain(company_id, hash_date, extra_domain)
+            self._get_unhashed_moves_in_hashed_period_domain(company_id, hash_date, [('state', '=', 'posted')])
         )
         for journal, journal_moves in moves.grouped('journal_id').items():
             for chain_moves in journal_moves.grouped('sequence_prefix').values():
                 chain_info = chain_moves._get_chain_info(force_hash=True)
                 if chain_info is False:
                     continue
+
                 last_move_hashed = chain_info['last_move_hashed']
                 # It is possible that some moves cannot be hashed (i.e. after upgrade).
                 # We show a warning ('account_not_hashable_unlocked_moves') if that is the case.
@@ -114,12 +114,13 @@ class AccountSecureEntries(models.TransientModel):
             unreconciled_bank_statement_line_ids = []
             chains_to_hash = []
             if wizard.hash_date:
-                unreconciled_bank_statement_lines = self.env['account.bank.statement.line'].search(
-                    wizard.company_id._get_unreconciled_statement_lines_domain(wizard.hash_date)
-                )
-                unreconciled_bank_statement_line_ids = unreconciled_bank_statement_lines.ids
-                extra_domain = [('sequence_prefix', 'not in', unreconciled_bank_statement_lines.move_id.mapped('sequence_prefix'))]
-                chains_to_hash = wizard._get_chains_to_hash(wizard.company_id, wizard.hash_date, extra_domain=extra_domain)
+                for chain_info in wizard._get_chains_to_hash(wizard.company_id, wizard.hash_date):
+                    if 'unreconciled' in chain_info['warnings']:
+                        unreconciled_bank_statement_line_ids.extend(
+                            chain_info['moves'].statement_line_ids.filtered(lambda l: not l.is_reconciled).ids
+                        )
+                    else:
+                        chains_to_hash.append(chain_info)
             wizard.unreconciled_bank_statement_line_ids = [Command.set(unreconciled_bank_statement_line_ids)]
             wizard.chains_to_hash_with_gaps = [
                 {
