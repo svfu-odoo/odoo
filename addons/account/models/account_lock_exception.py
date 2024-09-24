@@ -1,6 +1,6 @@
 from odoo import _, api, fields, models, Command
 from odoo.osv import expression
-from odoo.tools import create_index
+from odoo.tools import SQL, create_index
 from odoo.tools.misc import format_datetime
 from odoo.exceptions import UserError, ValidationError
 
@@ -279,10 +279,10 @@ class AccountLockException(models.Model):
 
         domain = [
             ('model', '=', 'account.move'),
-            ('account_audit_log_activated', '=', True),
             ('message_type', '=', 'notification'),
-            ('account_audit_log_move_id.company_id', 'child_of', self.company_id.id),  # WORKAROUND: record_company_id is not set for bills
             ('date', '>=', self.create_date),
+            # WORKAROUND: record_company_id is not set for bills
+            ('res_id', 'in', self.env['account.move']._search([('company_id', 'child_of', self.company_id.id)])),
         ]
 
         if self.user_id:
@@ -297,16 +297,16 @@ class AccountLockException(models.Model):
         tracking_old_datetime_domain = []
         tracking_new_datetime_domain = []
         if min_date:
-            move_date_domain.append([('account_audit_log_move_id.date', '>=', min_date)])
+            move_date_domain.append([('date', '>=', min_date)])
             tracking_old_datetime_domain.append([('tracking_value_ids.old_value_datetime', '>=', min_date)])
             tracking_new_datetime_domain.append([('tracking_value_ids.new_value_datetime', '>=', min_date)])
         if max_date:
-            move_date_domain.append([('account_audit_log_move_id.date', '<=', max_date)])
+            move_date_domain.append([('date', '<=', max_date)])
             tracking_old_datetime_domain.append([('tracking_value_ids.old_value_datetime', '<=', max_date)])
             tracking_new_datetime_domain.append([('tracking_value_ids.new_value_datetime', '<=', max_date)])
         domain.extend([
             '|',
-                *expression.AND(move_date_domain),
+                ('res_id', 'in', self.env['account.move']._search(expression.AND(move_date_domain))),
                 '&',
                     ('tracking_value_ids.field_id', '=', self.env['ir.model.fields']._get('account.move', 'date').id),
                     '|',
@@ -316,6 +316,7 @@ class AccountLockException(models.Model):
 
         return domain
 
+    # TODO: remove in master
     def action_show_audit_trail_during_exception(self):
         self.ensure_one()
         return {
@@ -325,4 +326,18 @@ class AccountLockException(models.Model):
             'views': [(self.env.ref('account.view_message_tree_audit_log').id, 'list'), (False, 'form')],
             'search_view_id': [self.env.ref('account.view_message_tree_audit_log_search').id],
             'domain': self._get_audit_trail_during_exception_domain(),
+        }
+
+    def action_audit_exception(self):
+        self.ensure_one()
+        # TODO: not sure why the commented version does not work
+        # audit_trail_moves_query = self.env['mail.message']._search(self._get_audit_trail_during_exception_domain()).select('res_id')
+        audit_trail_move_ids = self.env['mail.message'].search(self._get_audit_trail_during_exception_domain()).mapped('res_id')
+        return {
+            'name': _("Journal Items"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move.line',
+            'view_mode': 'list,form',
+            # 'domain': [('move_id', 'in', SQL('(%s)', audit_trail_moves_query))],
+            'domain': [('move_id', 'in', audit_trail_move_ids)],
         }
