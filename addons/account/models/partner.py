@@ -993,21 +993,21 @@ class ResPartner(models.Model):
 
     @api.depends('company_id.check_account_audit_trail')
     def _compute_check_account_audit_trail(self):
-        for record in self:
-            record.check_account_audit_trail = (
-                (not record.company_id or record.company_id.check_account_audit_trail)
-                and (record.customer_rank > 0 or record.supplier_rank > 0)
-            )
+        restricted_partners = self.env['account.move'].sudo()._search([
+            ('check_account_audit_trail', '=', True),
+            ('partner_id', 'in', self.ids),
+        ]).partner_id
+        restricted_partners.check_account_audit_trail = True
+        (self - restricted_partners).check_account_audit_trail = False
 
     def _search_check_account_audit_trail(self, operator, value):
         if operator not in ['=', '!='] or value not in [True, False]:
             raise UserError(_('Operation not supported'))
         want_active = (operator == '=') == value
-        normal_domain_for_active = [
-            '&',
-                '|', ('company_id', '=', False), ('company_id.check_account_audit_trail', '=', True),
-                '|', ('customer_rank', '>', 0), ('supplier_rank', '>', 0),
-        ]
+        restricted_partner_id_query = self.env['account.move'].sudo()._search([
+            ('check_account_audit_trail', '=', True),
+        ]).select('partner_id')
+        normal_domain_for_active = [('id', 'in', SQL('(%s)', restricted_partner_id_query))]
         if want_active:
             return normal_domain_for_active
         else:
