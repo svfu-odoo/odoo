@@ -291,6 +291,11 @@ class AccountMove(models.Model):
     country_code = fields.Char(related='company_id.account_fiscal_country_id.code', readonly=True)
     company_price_include = fields.Selection(related='company_id.account_price_include', readonly=True)
     attachment_ids = fields.One2many('ir.attachment', 'res_id', domain=[('res_model', '=', 'account.move')], string='Attachments')
+    check_account_audit_trail = fields.Boolean(
+        'Audit Trail',
+        compute='_compute_check_account_audit_trail',
+        search='_search_check_account_audit_trail'
+    )
 
     # === Hash Fields === #
     restrict_mode_hash_table = fields.Boolean(related='journal_id.restrict_mode_hash_table')
@@ -913,6 +918,21 @@ class AccountMove(models.Model):
 
         for record in self:
             record.type_name = type_name_mapping[record.move_type]
+
+    @api.depends('company_id.check_account_audit_trail')
+    def _compute_check_account_audit_trail(self):
+        for record in self:
+            record.check_account_audit_trail = record.company_id.check_account_audit_trail
+
+    def _search_check_account_audit_trail(self, operator, value):
+        if operator not in ['=', '!='] or value not in [True, False]:
+            raise UserError(_('Operation not supported'))
+        want_active = (operator == '=') == value
+        normal_domain_for_active = [('company_id.check_account_audit_trail', '=', True)]
+        if want_active:
+            return normal_domain_for_active
+        else:
+            return ['!'] + normal_domain_for_active
 
     @api.depends('inalterable_hash')
     def _compute_secured(self):

@@ -4,15 +4,14 @@ from odoo.exceptions import UserError
 from odoo.osv.expression import OR
 
 bypass_token = object()
-DOMAINS = {
-    'account.move': lambda operator, value: [('company_id.check_account_audit_trail', operator, value)],
-    'account.account': lambda operator, value: [('company_ids.check_account_audit_trail', operator, value)],
-    'account.tax': lambda operator, value: [('company_id.check_account_audit_trail', operator, value)],
-    'res.partner': lambda operator, value: [
-        '|', ('company_id', '=', False), ('company_id.check_account_audit_trail', operator, value),
-        '|', ('customer_rank', '>', 0), ('supplier_rank', '>', 0),
-    ],
-    'res.company': lambda operator, value: [('check_account_audit_trail', operator, value)],
+# MODEL_FIELD maps each supported model to the field through which it can be accessed.
+# Each supported model has to have a searchable field `check_account_audit_trail`.
+MODEL_FIELD = {
+    'account.move': 'account_audit_log_move_id',
+    'account.account': 'account_audit_log_account_id',
+    'account.tax': 'account_audit_log_tax_id',
+    'res.partner': 'account_audit_log_partner_id',
+    'res.company': 'account_audit_log_company_id',
 }
 
 
@@ -110,27 +109,23 @@ class Message(models.Model):
 
     def _compute_account_audit_log_activated(self):
         for message in self:
-            message.account_audit_log_activated = message.message_type == 'notification' and (
-                message.account_audit_log_move_id
-                or message.account_audit_log_account_id
-                or message.account_audit_log_tax_id
-                or message.account_audit_log_partner_id
-                or message.account_audit_log_company_id
+            message.account_audit_log_activated = message.message_type == 'notification' and any(
+                message[field] for field in MODEL_FIELD.values()
             )
 
     def _search_account_audit_log_activated(self, operator, value):
         if operator not in ['=', '!='] or not isinstance(value, bool):
             raise UserError(self.env._('Operation not supported'))
         return [('message_type', '=', 'notification')] + OR([
-            [('model', '=', model), ('res_id', 'in', self.env[model]._search(DOMAINS[model](operator, value)))]
-            for model in DOMAINS
+            [('model', '=', model), ('res_id', 'in', self.env[model]._search([('check_account_audit_trail', '=', True)]))]
+            for model in MODEL_FIELD
         ])
 
     def _compute_audit_log_related_record_id(self, model, fname):
         messages_of_related = self.filtered(lambda m: m.model == model and m.res_id)
         (self - messages_of_related)[fname] = False
         if messages_of_related:
-            domain = DOMAINS[model](operator='=', value=True)
+            domain = [('check_account_audit_trail', '=', True)]
             related_recs = self.env[model].sudo().search([('id', 'in', messages_of_related.mapped('res_id'))] + domain)
             recs_by_id = {record.id: record for record in related_recs}
             for message in messages_of_related:
