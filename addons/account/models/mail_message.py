@@ -22,31 +22,31 @@ class Message(models.Model):
     account_audit_log_move_id = fields.Many2one(
         comodel_name='account.move',
         string="Journal Entry",
-        compute="_compute_account_audit_log_move_id",
+        compute="_compute_audit_log_related_record_id",
         search="_search_account_audit_log_move_id",
     )
     account_audit_log_partner_id = fields.Many2one(
         comodel_name='res.partner',
         string="Partner",
-        compute="_compute_account_audit_log_partner_id",
+        compute="_compute_audit_log_related_record_id",
         search="_search_account_audit_log_partner_id",
     )
     account_audit_log_account_id = fields.Many2one(
         comodel_name='account.account',
         string="Account",
-        compute="_compute_account_audit_log_account_id",
+        compute="_compute_audit_log_related_record_id",
         search="_search_account_audit_log_account_id",
     )
     account_audit_log_tax_id = fields.Many2one(
         comodel_name='account.tax',
         string="Tax",
-        compute="_compute_account_audit_log_tax_id",
+        compute="_compute_audit_log_related_record_id",
         search="_search_account_audit_log_tax_id",
     )
     account_audit_log_company_id = fields.Many2one(
         comodel_name='res.company',
         string="Company ",
-        compute="_compute_account_audit_log_company_id",
+        compute="_compute_audit_log_related_record_id",
         search="_search_account_audit_log_company_id",
     )
     account_audit_log_activated = fields.Boolean(
@@ -77,32 +77,17 @@ class Message(models.Model):
             )
             message.account_audit_log_preview = audit_log_preview
 
-    def _compute_account_audit_log_move_id(self):
-        self._compute_audit_log_related_record_id('account.move', 'account_audit_log_move_id')
-
     def _search_account_audit_log_move_id(self, operator, value):
         return self._search_audit_log_related_record_id('account.move', operator, value)
-
-    def _compute_account_audit_log_account_id(self):
-        self._compute_audit_log_related_record_id('account.account', 'account_audit_log_account_id')
 
     def _search_account_audit_log_account_id(self, operator, value):
         return self._search_audit_log_related_record_id('account.account', operator, value)
 
-    def _compute_account_audit_log_tax_id(self):
-        self._compute_audit_log_related_record_id('account.tax', 'account_audit_log_tax_id')
-
     def _search_account_audit_log_tax_id(self, operator, value):
         return self._search_audit_log_related_record_id('account.tax', operator, value)
 
-    def _compute_account_audit_log_company_id(self):
-        self._compute_audit_log_related_record_id('res.company', 'account_audit_log_company_id')
-
     def _search_account_audit_log_company_id(self, operator, value):
         return self._search_audit_log_related_record_id('res.company', operator, value)
-
-    def _compute_account_audit_log_partner_id(self):
-        self._compute_audit_log_related_record_id('res.partner', 'account_audit_log_partner_id')
 
     def _search_account_audit_log_partner_id(self, operator, value):
         return self._search_audit_log_related_record_id('res.partner', operator, value)
@@ -122,14 +107,11 @@ class Message(models.Model):
             for field in MODEL_FIELD.values()
         ])
 
-    def _compute_audit_log_related_record_id(self, model, fname):
-        messages_of_related = self.filtered(lambda m: m.model == model and m.res_id)
-        (self - messages_of_related)[fname] = False
-        if messages_of_related:
-            related_recs = self.env[model].sudo().search([('id', 'in', messages_of_related.mapped('res_id'))])
-            recs_by_id = {record.id: record for record in related_recs}
-            for message in messages_of_related:
-                message[fname] = recs_by_id.get(message.res_id, False)
+    def _compute_audit_log_related_record_id(self):
+        for message in self:
+            for model, field in MODEL_FIELD.items():
+                record_id = message.res_id if message.res_id and message.model == model else False
+                message[field] = record_id
 
     def _search_audit_log_related_record_id(self, model, operator, value):
         if operator in ['=', 'like', 'ilike', '!=', 'not ilike', 'not like'] and isinstance(value, str):
