@@ -145,10 +145,7 @@ class Message(models.Model):
         if self.env.context.get('bypass_audit') is bypass_token:
             return
         for message in self:
-            if message.account_audit_log_activated and not (
-                message.account_audit_log_move_id
-                and not message.account_audit_log_move_id.posted_before
-            ):
+            if message.account_audit_log_activated:
                 raise UserError(self.env._("You cannot remove parts of the audit trail. Archive the record instead."))
 
     def write(self, vals):
