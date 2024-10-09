@@ -55,7 +55,7 @@ class Message(models.Model):
         search="_search_account_audit_log_activated",
     )
 
-    @api.depends('tracking_value_ids')
+    @api.depends('account_audit_log_activated', 'tracking_value_ids')
     def _compute_account_audit_log_preview(self):
         audit_messages = self.filtered('account_audit_log_activated')
         (self - audit_messages).account_audit_log_preview = False
@@ -107,6 +107,7 @@ class Message(models.Model):
     def _search_account_audit_log_partner_id(self, operator, value):
         return self._search_audit_log_related_record_id('res.partner', operator, value)
 
+    @api.depends(*list(MODEL_FIELD.values()))
     def _compute_account_audit_log_activated(self):
         for message in self:
             message.account_audit_log_activated = message.message_type == 'notification' and any(
