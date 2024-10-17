@@ -296,6 +296,15 @@ class AccountMove(models.Model):
         compute='_compute_check_account_audit_trail',
         search='_search_check_account_audit_trail'
     )
+    audit_trail_messages = fields.One2many(
+        'mail.message',
+        'res_id',
+        domain=[
+            ('model', '=', 'account.move'),
+            ('message_type', '=', 'notification'),
+        ],
+        string='Audit Trail Messages',
+    )
 
     # === Hash Fields === #
     restrict_mode_hash_table = fields.Boolean(related='journal_id.restrict_mode_hash_table')

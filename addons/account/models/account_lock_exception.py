@@ -274,6 +274,7 @@ class AccountLockException(models.Model):
             ('state', '=', 'active'),  # checks the datetime
         ]
 
+    # TODO: remove in master
     def _get_audit_trail_during_exception_domain(self):
         self.ensure_one()
 
@@ -327,13 +328,57 @@ class AccountLockException(models.Model):
             'domain': self._get_audit_trail_during_exception_domain(),
         }
 
+    def _get_moves_during_exception_domain(self):
+        self.ensure_one()
+
+        common_message_domain = [
+            ('date', '>=', self.create_date),
+        ]
+        if self.user_id:
+            common_message_domain.append(('create_uid', '=', self.user_id.id))
+        if self.end_datetime:
+            common_message_domain.append(('date', '<=', self.end_datetime))
+
+        # Add restrictions on the accounting date to avoid unnecessary entries
+        min_date = self.lock_date
+        max_date = self.company_lock_date
+        move_date_domain = []
+        tracking_old_datetime_domain = []
+        tracking_new_datetime_domain = []
+        if min_date:
+            move_date_domain.append([('date', '>=', min_date)])
+            tracking_old_datetime_domain.append([('tracking_value_ids.old_value_datetime', '>=', min_date)])
+            tracking_new_datetime_domain.append([('tracking_value_ids.new_value_datetime', '>=', min_date)])
+        if max_date:
+            move_date_domain.append([('date', '<=', max_date)])
+            tracking_old_datetime_domain.append([('tracking_value_ids.old_value_datetime', '<=', max_date)])
+            tracking_new_datetime_domain.append([('tracking_value_ids.new_value_datetime', '<=', max_date)])
+
+        return [
+            ('company_id', 'child_of', self.company_id.id),
+            '|',
+                # The date was changed from or to a value inside the excepted period
+                ('audit_trail_messages', 'any', [
+                    *common_message_domain,
+                    ('tracking_value_ids.field_id', '=', self.env['ir.model.fields']._get('account.move', 'date').id),
+                    '|',
+                        *expression.AND(tracking_old_datetime_domain),
+                        *expression.AND(tracking_new_datetime_domain),
+                ]),
+                # The date of the move is inside the excepted period and sth. was changed on the move
+                '&',
+                    *expression.AND(move_date_domain),
+                    ('audit_trail_messages', 'any', [
+                        *common_message_domain,
+                    ]),
+        ]
+
     def action_audit_exception(self):
         self.ensure_one()
-        audit_trail = self.env['mail.message'].search(self._get_audit_trail_during_exception_domain())
         return {
             'name': _("Journal Items"),
             'type': 'ir.actions.act_window',
             'res_model': 'account.move.line',
             'view_mode': 'list,form',
-            'domain': [('id', 'in', audit_trail.account_audit_log_move_id.line_ids.ids)],
+            'domain': [('move_id', 'any', self._get_moves_during_exception_domain())],
         }
