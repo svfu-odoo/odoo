@@ -320,7 +320,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi):
                 'name': 'not a declaration line',
                 'product_id': self.product_1.id,
                 'price_unit': 2000.0,  # > declaration.threshold; not counted
-                'tax_id': False,
+                'tax_id': [Command.set(self.company.account_sale_tax_id.ids)],
             }),
         ])
         independent_order.action_confirm()
@@ -341,7 +341,7 @@ class TestItEdiDoiRemaining(TestItEdiDoi):
                 'name': 'not a declaration line',
                 'product_id': self.product_1.id,
                 'price_unit': 2000.0,  # > declaration.threshold; not counted
-                'tax_id': False,
+                'tax_id': [Command.set(self.company.account_sale_tax_id.ids)],
             }),
         ])
         order.action_confirm()
@@ -351,6 +351,12 @@ class TestItEdiDoiRemaining(TestItEdiDoi):
             'remaining': -2000.0,
         }])
 
+        downpayment_product = self.env['product.product'].create({
+            'name': 'Down Payment',
+            'taxes_id': [Command.set(self.company.account_sale_tax_id.copy({'price_include': True}).ids)],
+            'type': 'service',
+        })
+        self.env['ir.config_parameter'].sudo().set_param('sale.default_deposit_product_id', downpayment_product.id)
         for i in range(2):
             self.env['sale.advance.payment.inv'].with_context({
                    'active_model': 'sale.order',
@@ -380,8 +386,6 @@ class TestItEdiDoiRemaining(TestItEdiDoi):
             "Pay attention, the threshold of your Declaration of Intent test 2019-threshold 1000 of 1,000.00\xa0€ is exceeded by 3,500.00\xa0€, this document included.\n"
             "Invoiced: 2,000.00\xa0€; Not Yet Invoiced: 2,500.00\xa0€"
         )
-        # WORKAROUND: to post an invoice every invoice line needs to have exactly 1 tax set
-        invoice.invoice_line_ids.filtered(lambda l: not l.tax_ids).tax_ids = self.company.account_sale_tax_id
         invoice.action_post()
         self.assertRecordValues(declaration, [{
             'invoiced': 2000.0,  # 2000 from invoice
@@ -390,8 +394,6 @@ class TestItEdiDoiRemaining(TestItEdiDoi):
         }])
 
         invoice2 = order.invoice_ids[1]
-        # WORKAROUND: to post an invoice every invoice line needs to have exactly 1 tax set
-        invoice2.invoice_line_ids.filtered(lambda l: not l.tax_ids).tax_ids = self.company.account_sale_tax_id
         invoice2.action_post()
         self.assertEqual(
             invoice2.l10n_it_edi_doi_warning,

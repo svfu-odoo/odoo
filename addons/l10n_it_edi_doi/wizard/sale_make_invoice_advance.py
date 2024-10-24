@@ -8,7 +8,7 @@ class SaleAdvancePaymentInv(models.TransientModel):
     _inherit = 'sale.advance.payment.inv'
 
     def _create_invoices(self, sale_orders):
-        """Extend to create a dedicated downpayment line for the declaration of intent amount."""
+        """Extend to create a dedicated down payment line for the declaration of intent amount."""
         invoice = super()._create_invoices(sale_orders)
 
         if self.advance_payment_method == 'delivered':
@@ -16,8 +16,8 @@ class SaleAdvancePaymentInv(models.TransientModel):
 
         order = self.sale_order_ids  # super calls ensure_one
         doi_tax = order.l10n_it_edi_doi_id.company_id.l10n_it_edi_doi_tax_id
-        if not order.l10n_it_edi_doi_id or not doi_tax:
-            # includes the case there is no order.l10n_it_edi_doi_id
+        if not doi_tax:
+            # Includes the case where there is no order.l10n_it_edi_doi_id
             return invoice
 
         doi_total = 0
@@ -27,7 +27,7 @@ class SaleAdvancePaymentInv(models.TransientModel):
             price_reduce = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
             doi_total += price_reduce * line.product_uom_qty
 
-        # The tax on the downpayment product was possibly mapped by the doi fiscal position
+        # The tax on the down payment product was possibly mapped by the doi fiscal position
         # Here we do a custom mapping that does not map taxes that will be mapped to the special doi tax
         doi_fiscal_position = order.l10n_it_edi_doi_id.company_id.l10n_it_edi_doi_fiscal_position_id
         advance_product_taxes = self.product_id.taxes_id.filtered(lambda tax: tax.company_id == order.company_id)
@@ -53,16 +53,16 @@ class SaleAdvancePaymentInv(models.TransientModel):
                 # The order has no lines contributing to the declaration of intent
                 continue
 
-            # split the downpayment amount into 2: doi amount and other amount
+            # Split the down payment amount into 2: doi amount and other amount
             down_total = downpayment_line.price_unit
             if all(advance_product_taxes.mapped('price_include')):
                 amount_total = order.amount_total
             else:
                 amount_total = order.amount_untaxed
-            doi_down = invoice.currency_id.round(doi_total / amount_total * down_total)
+            doi_down = order.currency_id.round(doi_total / amount_total * down_total)
             other_down = down_total - doi_down
 
-            if invoice.currency_id.is_zero(amount_total - doi_total):
+            if order.currency_id.is_zero(amount_total - doi_total):
                 # The whole order amount is under doi_tax
                 # We just have to add the tax information on the lines
                 downpayment_line.tax_id = doi_tax
@@ -70,18 +70,17 @@ class SaleAdvancePaymentInv(models.TransientModel):
                 continue
 
             # The order amount is partially not under doi_tax
-            # Split the downpayment line into 2: one for the doi amount and one for the other amount
+            # Split the down payment line into 2: one for the doi amount and one for the other amount
             downpayment_line.price_unit = other_down
             doi_so_line_values = {
                 **self._prepare_so_line_values(order),
                 'price_unit': doi_down,
                 'tax_id': [Command.set(doi_tax.ids)],
             }
-            doi_so_line_values['price_unit'] = doi_down
             doi_down_payment_so_line = self.env['sale.order.line'].create(doi_so_line_values)
 
-            # split the invoice line into 2: one for the doi amount and one for the other amount
-            invoice.write({'invoice_line_ids': [
+            # Split the invoice line into 2: one for the doi amount and one for the other amount
+            invoice.invoice_line_ids = [
                 Command.create(doi_down_payment_so_line._prepare_invoice_line(
                     name=self._get_down_payment_description(order),
                     quantity=1.0,
@@ -89,6 +88,6 @@ class SaleAdvancePaymentInv(models.TransientModel):
                 Command.update(invoice_line.id, {
                     'price_unit': other_down,
                 }),
-            ]})
+            ]
 
         return invoice
